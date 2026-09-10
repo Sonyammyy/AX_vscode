@@ -1,12 +1,13 @@
 import os
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from zoneinfo import ZoneInfo
 import requests
+import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
 
-# 1. 환경 변수 로드
+# 1. 환경 변수 로드 (상위 폴더의 .env)
 env_path = Path(__file__).resolve().parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
@@ -72,7 +73,7 @@ TRAVEL_CITIES = {
     }
 }
 
-# 사이드바
+# 3. 사이드바 여행지 선택
 st.sidebar.header("🗺️ 여행지 선택")
 selected_city_name = st.sidebar.selectbox(
     "떠나고 싶은 도시를 선택하세요:",
@@ -82,7 +83,7 @@ selected_city_name = st.sidebar.selectbox(
 
 city_data = TRAVEL_CITIES[selected_city_name]
 
-# 3. API 데이터 조회 (캐싱 적용)
+# 4. API 데이터 수집 함수 (캐싱 적용)
 @st.cache_data(ttl=600)
 def fetch_weather(city_en):
     url = f"https://api.openweathermap.org/data/2.5/weather?q={city_en}&appid={WEATHER_API_KEY}&units=metric&lang=kr"
@@ -101,16 +102,35 @@ def fetch_exchange():
     except requests.exceptions.RequestException:
         return None
 
+@st.cache_data(ttl=3600)
+def fetch_historical_rates(currency_code, days=30):
+    end_date = date.today()
+    start_date = end_date - timedelta(days=days)
+    url = f"https://api.frankfurter.app/{start_date}..{end_date}?from={currency_code}&to=KRW"
+    try:
+        res = requests.get(url, timeout=5)
+        if res.status_code == 200:
+            data = res.json()
+            rates_history = data.get("rates", {})
+            records = [{"날짜": d, "환율(KRW)": val.get("KRW")} for d, val in rates_history.items()]
+            df = pd.DataFrame(records)
+            if not df.empty:
+                df["날짜"] = pd.to_datetime(df["날짜"])
+                df = df.sort_values("날짜").set_index("날짜")
+            return df
+        return pd.DataFrame()
+    except Exception:
+        return pd.DataFrame()
+
 weather = fetch_weather(city_data["city_en"])
 exchange = fetch_exchange()
 
 # -------------------------------------------------------------
-# [상단 헤더] 도시명 & 시차 / 현지 시각
+# [섹션 1] 도시명 & 시차 / 실시간 시각
 # -------------------------------------------------------------
 kst_now = datetime.now(ZoneInfo("Asia/Seoul"))
 local_now = datetime.now(ZoneInfo(city_data["timezone"]))
 
-# 시차 계산
 time_diff = (local_now.utcoffset() - kst_now.utcoffset()).total_seconds() / 3600
 time_diff_str = f"한국보다 {abs(int(time_diff))}시간 느림" if time_diff < 0 else (
     f"한국보다 {int(time_diff)}시간 빠름" if time_diff > 0 else "한국과 시차 없음"
@@ -127,7 +147,7 @@ with header_col2:
 st.markdown("---")
 
 # -------------------------------------------------------------
-# [핵심 섹션 1] 날씨 상세 정보 (완벽 복구!)
+# [섹션 2] 날씨 상세 정보
 # -------------------------------------------------------------
 st.subheader("🌤️ 현지 실시간 날씨")
 
@@ -161,7 +181,7 @@ else:
 st.markdown("---")
 
 # -------------------------------------------------------------
-# [핵심 섹션 2] 환율 및 여행 정보 탭
+# [섹션 3] 환율, 계산기, 변동 그래프 및 명소 탭
 # -------------------------------------------------------------
 tab1, tab2 = st.tabs(["💰 실시간 환율 & 환전 계산기", "📍 추천 명소 & 여행 꿀팁"])
 
@@ -171,22 +191,21 @@ with tab1:
         curr_code = city_data["currency"]
         unit = city_data["unit"]
         
-        # 1 외화당 매매기준율 (KRW)
         base_rate = (1 / rates[curr_code]) * unit
-        spread_rate = 0.0175  # 은행 일반 스프레드 마진율 1.75%
+        spread_rate = 0.0175  # 은행 마진율 1.75%
         spread_won = base_rate * spread_rate
 
         cash_buy_raw = base_rate + spread_won
         cash_sell_raw = base_rate - spread_won
 
-        # 상단 3개 메트릭 깔끔 정렬
+        # 상단 3개 메트릭
         c1, c2, c3 = st.columns(3)
         unit_label = f"1 {curr_code}" if unit == 1 else f"{unit} {curr_code}"
         c1.metric(f"📊 매매기준율 ({unit_label})", f"{base_rate:,.2f} 원")
-        c2.metric(f"🔴 현찰 살 때 (기본)", f"{cash_buy_raw:,.2f} 원")
-        c3.metric(f"🔵 현찰 팔 때 (기본)", f"{cash_sell_raw:,.2f} 원")
+        c2.metric("🔴 현찰 살 때 (기본)", f"{cash_buy_raw:,.2f} 원")
+        c3.metric("🔵 현찰 팔 때 (기본)", f"{cash_sell_raw:,.2f} 원")
 
-        # 접이식 계산기 (아코디언)
+        # 1) 접이식 계산기 (아코디언)
         with st.expander("🧮 환전 우대율(스프레드) 적용 계산기 열기", expanded=True):
             calc_col1, calc_col2 = st.columns([1, 1.2])
 
@@ -234,6 +253,31 @@ with tab1:
                         st.info(f"🎉 기본 매도 대비 약 **{saved_krw:,.0f}원** 더 환급!")
 
                     st.caption("※ 기준 마진율 1.75% 기준이며 은행별 고시 환율에 따라 다를 수 있습니다.")
+
+        # 2) 환율 변동 추이 꺾은선 그래프
+        st.markdown("---")
+        st.subheader(f"📈 최근 30일 {curr_code} 환율 변동 추이")
+        
+        hist_df = fetch_historical_rates(curr_code, days=30)
+        if not hist_df.empty:
+            plot_df = hist_df.copy()
+            if unit > 1:
+                plot_df["환율(KRW)"] = plot_df["환율(KRW)"] * unit
+            
+            st.line_chart(plot_df["환율(KRW)"], use_container_width=True)
+
+            min_val = plot_df["환율(KRW)"].min()
+            max_val = plot_df["환율(KRW)"].max()
+            latest_val = plot_df["환율(KRW)"].iloc[-1]
+            first_val = plot_df["환율(KRW)"].iloc[0]
+            diff_val = latest_val - first_val
+
+            m_col1, m_col2, m_col3 = st.columns(3)
+            m_col1.metric("30일 최저 환율", f"{min_val:,.2f} 원")
+            m_col2.metric("30일 최고 환율", f"{max_val:,.2f} 원")
+            m_col3.metric("30일 전 대비 변동", f"{latest_val:,.2f} 원", delta=f"{diff_val:+,.2f} 원")
+        else:
+            st.info(f"'{curr_code}' 통화의 과거 시계열 데이터(30일)를 불러오는 중이거나 지원되지 않는 통화입니다.")
     else:
         st.error("환율 정보를 불러올 수 없습니다.")
 
