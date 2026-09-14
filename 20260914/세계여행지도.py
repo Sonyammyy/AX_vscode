@@ -172,8 +172,8 @@ KAKAO_MAP_API_KEY = os.getenv("KAKAO_MAP_API_KEY", "").strip()
 GLOBAL_CITY_DB = [
     {"ko": "서울", "en": "Seoul", "country": "KR", "currency": "KRW", "lat": 37.5665, "lng": 126.9780, "is_korea": True},
     {"ko": "부산", "en": "Busan", "country": "KR", "currency": "KRW", "lat": 35.1796, "lng": 129.0756, "is_korea": True},
-    {"ko": "시흥", "en": "Siheung", "country": "KR", "currency": "KRW", "lat": 37.3802, "lng": 126.8029, "is_korea": True},
     {"ko": "수원", "en": "Suwon", "country": "KR", "currency": "KRW", "lat": 37.2636, "lng": 127.0286, "is_korea": True},
+    {"ko": "시흥", "en": "Siheung", "country": "KR", "currency": "KRW", "lat": 37.3802, "lng": 126.8029, "is_korea": True},
     {"ko": "제주", "en": "Jeju", "country": "KR", "currency": "KRW", "lat": 33.4996, "lng": 126.5312, "is_korea": True},
     {"ko": "인천", "en": "Incheon", "country": "KR", "currency": "KRW", "lat": 37.4563, "lng": 126.7052, "is_korea": True},
     {"ko": "대구", "en": "Daegu", "country": "KR", "currency": "KRW", "lat": 35.8714, "lng": 128.6014, "is_korea": True},
@@ -196,7 +196,7 @@ GLOBAL_CITY_DB = [
 ]
 
 # -------------------------------------------------------------
-# 3. 실시간 통합 도시 검색 (국내 카카오맵 API 우선 연동)
+# 3. 실시간 통합 도시 검색
 # -------------------------------------------------------------
 def search_smart_cities(query_text):
     q = query_text.strip()
@@ -220,12 +220,11 @@ def search_smart_cities(query_text):
             if len(matches) >= 5:
                 return matches
 
-    # 2. 한글 검색어인 경우 카카오 로컬 REST API로 국내 지명 자동 탐색 (시흥, 여수, 목포 등 전역 지원)
+    # 2. 한글 검색어인 경우 카카오 로컬 REST API로 국내 지명 자동 탐색
     has_korean = bool(re.search(r'[가-힣]', q))
     if has_korean and KAKAO_MAP_API_KEY:
         url = "https://dapi.kakao.com/v2/local/search/keyword.json"
         headers = {"Authorization": f"KakaoAK {KAKAO_MAP_API_KEY}"}
-        # 시청이나 중심 지명 검색
         params = {"query": q if "시" in q or "군" in q else f"{q}시청", "size": 3}
         try:
             res = requests.get(url, headers=headers, params=params, timeout=4)
@@ -237,7 +236,7 @@ def search_smart_cities(query_text):
                     label = f"✈️ {clean_name} ({d.get('address_name')})"
                     matches.append({
                         "label": label,
-                        "city_query": "Seoul",  # 날씨 폴백
+                        "city_query": "Seoul",
                         "currency": "KRW",
                         "lat": float(d.get("y")),
                         "lng": float(d.get("x")),
@@ -273,14 +272,14 @@ def search_smart_cities(query_text):
     return matches
 
 # -------------------------------------------------------------
-# 4. 사이드바 구성
+# 4. 사이드바 구성 (디폴트: 서울)
 # -------------------------------------------------------------
 st.sidebar.markdown("## 🔍 여행지 검색")
 
 user_input = st.sidebar.text_input(
     "떠나고 싶은 도시를 입력하세요:",
-    value="시흥",
-    help="국내 모든 도시(시흥, 전주, 부산 등)와 전 세계 도시를 실시간으로 검색할 수 있습니다."
+    value="서울",
+    help="국내 모든 도시(서울, 부산, 수원, 시흥 등)와 전 세계 도시를 실시간으로 검색할 수 있습니다."
 ).strip()
 
 suggestions = search_smart_cities(user_input)
@@ -301,19 +300,17 @@ else:
     selected_city_name = "서울 (Seoul, KR)"
 
 # -------------------------------------------------------------
-# 5. 카카오 로컬 REST 랭킹 검색 함수 (순수 한글 추출)
+# 5. 카카오 로컬 REST 랭킹 검색 함수 (폴백 디폴트: 서울)
 # -------------------------------------------------------------
 @st.cache_data(ttl=1800)
 def fetch_kakao_top_ranking_places(search_name, category_type="restaurant", size=4):
-    """국내 모든 도시의 카카오맵 랭킹 상위 식당/카페 검색"""
     if not KAKAO_MAP_API_KEY:
         return []
     
-    # 괄호 앞부분에서 순수 한글 도시명만 정확하게 추출
     korean_part = search_name.split("(")[0]
     pure_city = re.sub(r'[^가-힣]', '', korean_part).strip()
     if not pure_city:
-        pure_city = "시흥"
+        pure_city = "서울"
     
     if category_type == "restaurant":
         query = f"{pure_city} 맛집"
@@ -354,7 +351,6 @@ def fetch_kakao_top_ranking_places(search_name, category_type="restaurant", size
 
 @st.cache_data(ttl=600)
 def fetch_weather(lat, lng):
-    """좌표 기반 실시간 날씨 조회"""
     url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lng}&appid={OPENWEATHER_API_KEY}&units=metric&lang=kr"
     try:
         res = requests.get(url, timeout=5)
@@ -430,6 +426,8 @@ if selected_places:
             st.write(pl.get("desc", ""))
             if pl.get("url"):
                 st.markdown(f"[🔗 카카오맵에서 길찾기 및 리뷰]({pl['url']})")
+            else:
+                st.markdown(f"[🔗 구글 지도에서 길찾기](https://www.google.com/maps/search/{pl['name']})")
 elif place_filter != "🏙️ 도시 중심만 보기":
     st.info("ℹ️ 해당 도시의 실시간 랭킹 데이터를 수신 중이거나 등록된 매장이 없습니다.")
 
