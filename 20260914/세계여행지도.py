@@ -167,108 +167,46 @@ OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY", "").strip()
 KAKAO_MAP_API_KEY = os.getenv("KAKAO_MAP_API_KEY", "").strip()
 
 # -------------------------------------------------------------
-# 2. 전 세계 및 국내 도시 DB (수원 등 국내 대표 도시 추가)
+# 2. 전 세계 기본 도시 DB
 # -------------------------------------------------------------
 GLOBAL_CITY_DB = [
-    # 대한민국
-    {"ko": "서울", "en": "Seoul", "country": "KR", "currency": "KRW", "lat": 37.5665, "lng": 126.9780, "is_korea": True, "kakao_keyword": "서울특별시청"},
-    {"ko": "부산", "en": "Busan", "country": "KR", "currency": "KRW", "lat": 35.1796, "lng": 129.0756, "is_korea": True, "kakao_keyword": "부산광역시청"},
-    {"ko": "수원", "en": "Suwon", "country": "KR", "currency": "KRW", "lat": 37.2636, "lng": 127.0286, "is_korea": True, "kakao_keyword": "수원시청"},
-    {"ko": "제주", "en": "Jeju", "country": "KR", "currency": "KRW", "lat": 33.4996, "lng": 126.5312, "is_korea": True, "kakao_keyword": "제주시청"},
-    {"ko": "인천", "en": "Incheon", "country": "KR", "currency": "KRW", "lat": 37.4563, "lng": 126.7052, "is_korea": True, "kakao_keyword": "인천광역시청"},
-    {"ko": "대구", "en": "Daegu", "country": "KR", "currency": "KRW", "lat": 35.8714, "lng": 128.6014, "is_korea": True, "kakao_keyword": "대구광역시청"},
-    {"ko": "강릉", "en": "Gangneung", "country": "KR", "currency": "KRW", "lat": 37.7519, "lng": 128.8761, "is_korea": True, "kakao_keyword": "강릉시청"},
-    {"ko": "경주", "en": "Gyeongju", "country": "KR", "currency": "KRW", "lat": 35.8562, "lng": 129.2247, "is_korea": True, "kakao_keyword": "경주시청"},
-    {"ko": "전주", "en": "Jeonju", "country": "KR", "currency": "KRW", "lat": 35.8242, "lng": 127.1480, "is_korea": True, "kakao_keyword": "전주시청"},
+    {"ko": "서울", "en": "Seoul", "country": "KR", "currency": "KRW", "lat": 37.5665, "lng": 126.9780, "is_korea": True},
+    {"ko": "부산", "en": "Busan", "country": "KR", "currency": "KRW", "lat": 35.1796, "lng": 129.0756, "is_korea": True},
+    {"ko": "시흥", "en": "Siheung", "country": "KR", "currency": "KRW", "lat": 37.3802, "lng": 126.8029, "is_korea": True},
+    {"ko": "수원", "en": "Suwon", "country": "KR", "currency": "KRW", "lat": 37.2636, "lng": 127.0286, "is_korea": True},
+    {"ko": "제주", "en": "Jeju", "country": "KR", "currency": "KRW", "lat": 33.4996, "lng": 126.5312, "is_korea": True},
+    {"ko": "인천", "en": "Incheon", "country": "KR", "currency": "KRW", "lat": 37.4563, "lng": 126.7052, "is_korea": True},
+    {"ko": "대구", "en": "Daegu", "country": "KR", "currency": "KRW", "lat": 35.8714, "lng": 128.6014, "is_korea": True},
+    {"ko": "전주", "en": "Jeonju", "country": "KR", "currency": "KRW", "lat": 35.8242, "lng": 127.1480, "is_korea": True},
 
-    # 러시아 (모스크바 포함)
+    # 러시아
     {"ko": "모스크바", "en": "Moscow", "country": "RU", "currency": "RUB", "lat": 55.7558, "lng": 37.6173, "is_korea": False},
     {"ko": "상트페테르부르크", "en": "Saint Petersburg", "country": "RU", "currency": "RUB", "lat": 59.9343, "lng": 30.3351, "is_korea": False},
     {"ko": "블라디보스토크", "en": "Vladivostok", "country": "RU", "currency": "RUB", "lat": 43.1155, "lng": 131.8855, "is_korea": False},
 
-    # 중국
+    # 해외 주요 도시
     {"ko": "베이징", "en": "Beijing", "country": "CN", "currency": "CNY", "lat": 39.9042, "lng": 116.4074},
     {"ko": "상하이", "en": "Shanghai", "country": "CN", "currency": "CNY", "lat": 31.2304, "lng": 121.4737},
-    {"ko": "청도", "en": "Qingdao", "country": "CN", "currency": "CNY", "lat": 36.0671, "lng": 120.3826},
-
-    # 일본
     {"ko": "도쿄", "en": "Tokyo", "country": "JP", "currency": "JPY", "lat": 35.6762, "lng": 139.6503},
     {"ko": "오사카", "en": "Osaka", "country": "JP", "currency": "JPY", "lat": 34.6937, "lng": 135.5023},
-    {"ko": "후쿠오카", "en": "Fukuoka", "country": "JP", "currency": "JPY", "lat": 33.5904, "lng": 130.4017},
-    {"ko": "삿포로", "en": "Sapporo", "country": "JP", "currency": "JPY", "lat": 43.0618, "lng": 141.3545},
-
-    # 프랑스 및 유럽
     {"ko": "파리", "en": "Paris", "country": "FR", "currency": "EUR", "lat": 48.8566, "lng": 2.3522},
     {"ko": "런던", "en": "London", "country": "GB", "currency": "GBP", "lat": 51.5074, "lng": -0.1278},
-    {"ko": "로마", "en": "Rome", "country": "IT", "currency": "EUR", "lat": 41.9028, "lng": 12.4964},
-
-    # 미국
     {"ko": "뉴욕", "en": "New York", "country": "US", "currency": "USD", "lat": 40.7128, "lng": -74.0060},
-    {"ko": "로스앤젤레스", "en": "Los Angeles", "country": "US", "currency": "USD", "lat": 34.0522, "lng": -118.2437},
-
-    # 호주
     {"ko": "시드니", "en": "Sydney", "country": "AU", "currency": "AUD", "lat": -33.8688, "lng": 151.2093},
 ]
 
 # -------------------------------------------------------------
-# 2-1. 오프라인 대비 맛집/카페 폴백 DB (모스크바, 수원, 부산, 서울 완비)
-# -------------------------------------------------------------
-FALLBACK_PLACES_DB = {
-    "모스크바": [
-        {"name": "카페 푸시킨 (Кафе Пушкинъ)", "category": "레스토랑", "lat": 55.7645, "lng": 37.6045, "desc": "19세기 귀족 저택 분위기에서 맛보는 최상급 비프 스트로가노프"},
-        {"name": "화이트 래빗 (White Rabbit)", "category": "레스토랑", "lat": 55.7482, "lng": 37.5835, "desc": "모스크바 시내 파노라마 뷰가 펼쳐지는 글래스 돔의 월드 50 레스토랑"},
-        {"name": "스톨로바야 57 (Столовая 57)", "category": "레스토랑", "lat": 55.7548, "lng": 37.6215, "desc": "굼 백화점 내 위치한 소련식 뷔페 식당이자 국민 가성비 명소"},
-        {"name": "더블비 커피 (Double B 아르바트)", "category": "카페", "lat": 55.7505, "lng": 37.5925, "desc": "러시아 바리스타 챔피언들이 창업한 대표 감성 스페셜티 카페"},
-        {"name": "코페마니아 (Coffeomania)", "category": "카페", "lat": 55.7602, "lng": 37.6185, "desc": "부드러운 시그니처 라프 커피(Raf)와 수제 디저트가 일품인 곳"}
-    ],
-    "상트페테르부르크": [
-        {"name": "문학 카페 (Литературное кафе)", "category": "레스토랑", "lat": 59.9362, "lng": 30.3185, "desc": "푸시킨이 마지막 결투 전 들렀던 역사적인 러시아 정통 레스토랑"},
-        {"name": "테레목 (Теремок 네프스키점)", "category": "레스토랑", "lat": 59.9345, "lng": 30.3342, "desc": "연어와 캐비어가 들어간 즉석 크레페(블리니)와 따뜻한 보르시"},
-        {"name": "세베르 메트로폴 (Север-Метрополь)", "category": "카페", "lat": 59.9348, "lng": 30.3325, "desc": "1903년 개업한 상트페테르부르크에서 가장 유서 깊은 제과점"},
-        {"name": "신치치 커피 (Bolshecoffee)", "category": "카페", "lat": 59.9548, "lng": 30.3142, "desc": "동굴 같은 아늑한 벽돌 인테리어에서 즐기는 고소한 로스터리 커피"}
-    ],
-    "서울": [
-        {"name": "광장시장 순희네빈대떡", "category": "레스토랑", "lat": 37.5702, "lng": 126.9998, "desc": "겉바속촉 서울 전통 녹두빈대떡의 성지"},
-        {"name": "명동교자 본점", "category": "레스토랑", "lat": 37.5635, "lng": 126.9855, "desc": "진한 고기 육수의 칼국수와 마늘김치가 일품인 미슐랭 빕구르망"},
-        {"name": "우래옥 (평양냉면)", "category": "레스토랑", "lat": 37.5682, "lng": 127.0003, "desc": "깊은 한우 육향을 자랑하는 70년 전통 평양냉면 명가"},
-        {"name": "어니언 안국 (Onion)", "category": "카페", "lat": 37.5794, "lng": 126.9868, "desc": "고즈넉한 한옥 대청마루에서 팡도르와 커피를 즐기는 감성 베이커리"},
-        {"name": "블루보틀 삼청 한옥", "category": "카페", "lat": 37.5815, "lng": 126.9818, "desc": "기와지붕 뷰가 내려다보이는 스페셜티 커피"}
-    ],
-    "부산": [
-        {"name": "쌍둥이돼지국밥 본점", "category": "레스토랑", "lat": 35.1328, "lng": 129.0858, "desc": "부드러운 수육과 진한 사골 육수로 줄 서서 먹는 부산 대표 국밥집"},
-        {"name": "해운대 기와집 대구탕", "category": "레스토랑", "lat": 35.1612, "lng": 129.1764, "desc": "미포 오션뷰를 바라보며 시원 칼칼하게 즐기는 원조 대구탕"},
-        {"name": "초량밀면 본점", "category": "레스토랑", "lat": 35.1185, "lng": 129.0418, "desc": "살얼음 동동 띄운 시원한 육수와 푸짐한 왕만두가 일품인 밀면 맛집"},
-        {"name": "랑데자뷰 해운대", "category": "카페", "lat": 35.1588, "lng": 129.1654, "desc": "제주도 감성의 현무암과 해운대 바다 파노라마가 펼쳐지는 힐링 카페"},
-        {"name": "신기산업 (영도)", "category": "카페", "lat": 35.0925, "lng": 129.0558, "desc": "부산항 대교와 바다가 한눈에 내려다보이는 루프탑 뷰 카페"}
-    ],
-    "수원": [
-        {"name": "본수원갈비 (우만동 본점)", "category": "레스토랑", "lat": 37.2894, "lng": 127.0398, "desc": "육즙 가득한 두툼한 한우 양념갈비로 유명한 전국구 수원 왕갈비 명가"},
-        {"name": "진미통닭 (수원 통닭거리)", "category": "레스토랑", "lat": 37.2805, "lng": 127.0175, "desc": "가마솥에서 튀겨내 겉은 바삭하고 닭똥집 튀김을 덤으로 주는 원조 통닭"},
-        {"name": "보영만두 본점", "category": "레스토랑", "lat": 37.2858, "lng": 127.0152, "desc": "바삭한 군만두와 매콤새콤 쫄면의 환상 조합을 자랑하는 수원 대표 분식"},
-        {"name": "정지영커피로스터즈 (행궁본점)", "category": "카페", "lat": 37.2855, "lng": 127.0142, "desc": "수원 화성 성곽 뷰와 빈티지 감성이 어우러진 행리단길 1등 카페"},
-        {"name": "존앤진 피자펍 & 카페", "category": "카페", "lat": 37.2842, "lng": 127.0162, "desc": "화성행궁 골목 정취를 즐기며 커피와 베이커리를 즐길 수 있는 핫플레이스"}
-    ],
-    "도쿄": [
-        {"name": "스시 다이와 (도요스)", "category": "레스토랑", "lat": 35.6454, "lng": 139.7915, "desc": "수산시장 직송 제철 오마카세 스시"},
-        {"name": "이치란 라멘 (시부야점)", "category": "레스토랑", "lat": 35.6612, "lng": 139.7008, "desc": "진한 돈코츠 라멘의 대명사"},
-        {"name": "푸글렌 도쿄 (아사쿠사)", "category": "카페", "lat": 35.7145, "lng": 139.7942, "desc": "북유럽 감성의 빈티지 인테리어와 커피"}
-    ],
-    "파리": [
-        {"name": "르 불롱제 (Le Bouillon Chartier)", "category": "레스토랑", "lat": 48.8718, "lng": 2.3432, "desc": "100년 역사의 벨 에포크 홀에서 맛보는 전통 가정식"},
-        {"name": "카페 드 플로르 (Café de Flore)", "category": "카페", "lat": 48.8542, "lng": 2.3325, "desc": "사르트르와 카뮈가 사랑했던 생제르맹 문학 카페"}
-    ]
-}
-
-# -------------------------------------------------------------
-# 3. 실시간 추천 검색 함수
+# 3. 실시간 통합 도시 검색 (국내 카카오맵 API 우선 연동)
 # -------------------------------------------------------------
 def search_smart_cities(query_text):
-    q = query_text.strip().lower()
+    q = query_text.strip()
     if not q:
         return []
+    
     matches = []
+    # 1. 내장 DB 우선 확인
     for item in GLOBAL_CITY_DB:
-        if q in item["ko"].lower() or q in item["en"].lower():
+        if q.lower() in item["ko"].lower() or q.lower() in item["en"].lower():
             label = f"✈️ {item['ko']} ({item['en']}, {item['country']})"
             matches.append({
                 "label": label,
@@ -277,32 +215,61 @@ def search_smart_cities(query_text):
                 "lat": item["lat"],
                 "lng": item["lng"],
                 "is_korea": item.get("is_korea", False),
-                "kakao_keyword": item.get("kakao_keyword", item["ko"])
+                "clean_ko": item["ko"]
             })
-            if len(matches) >= 6:
+            if len(matches) >= 5:
                 return matches
 
-    if not matches:
-        url = f"https://api.openweathermap.org/geo/1.0/direct?q={q}&limit=5&appid={OPENWEATHER_API_KEY}"
+    # 2. 한글 검색어인 경우 카카오 로컬 REST API로 국내 지명 자동 탐색 (시흥, 여수, 목포 등 전역 지원)
+    has_korean = bool(re.search(r'[가-힣]', q))
+    if has_korean and KAKAO_MAP_API_KEY:
+        url = "https://dapi.kakao.com/v2/local/search/keyword.json"
+        headers = {"Authorization": f"KakaoAK {KAKAO_MAP_API_KEY}"}
+        # 시청이나 중심 지명 검색
+        params = {"query": q if "시" in q or "군" in q else f"{q}시청", "size": 3}
         try:
-            res = requests.get(url, timeout=3)
+            res = requests.get(url, headers=headers, params=params, timeout=4)
             if res.status_code == 200:
-                for item in res.json():
-                    ko_name = item.get("local_names", {}).get("ko")
-                    eng_name = item.get("name", "")
-                    country = item.get("country", "")
-                    label = f"✈️ {ko_name} ({eng_name}, {country})" if ko_name else f"✈️ {eng_name} ({country})"
+                docs = res.json().get("documents", [])
+                for d in docs:
+                    place_name = d.get("place_name", q)
+                    clean_name = re.sub(r'[^가-힣]', '', place_name).replace("시청", "").replace("군청", "").strip()
+                    label = f"✈️ {clean_name} ({d.get('address_name')})"
                     matches.append({
                         "label": label,
-                        "city_query": eng_name,
-                        "currency": "USD",
-                        "lat": float(item["lat"]),
-                        "lng": float(item["lon"]),
-                        "is_korea": (country == "KR"),
-                        "kakao_keyword": ko_name if ko_name else eng_name
+                        "city_query": "Seoul",  # 날씨 폴백
+                        "currency": "KRW",
+                        "lat": float(d.get("y")),
+                        "lng": float(d.get("x")),
+                        "is_korea": True,
+                        "clean_ko": clean_name
                     })
+                if matches:
+                    return matches
         except Exception:
             pass
+
+    # 3. 해외 도시인 경우 OpenWeather Geocoding
+    url = f"https://api.openweathermap.org/geo/1.0/direct?q={q}&limit=5&appid={OPENWEATHER_API_KEY}"
+    try:
+        res = requests.get(url, timeout=3)
+        if res.status_code == 200:
+            for item in res.json():
+                ko_name = item.get("local_names", {}).get("ko")
+                eng_name = item.get("name", "")
+                country = item.get("country", "")
+                label = f"✈️ {ko_name} ({eng_name}, {country})" if ko_name else f"✈️ {eng_name} ({country})"
+                matches.append({
+                    "label": label,
+                    "city_query": eng_name,
+                    "currency": "USD" if country != "KR" else "KRW",
+                    "lat": float(item["lat"]),
+                    "lng": float(item["lon"]),
+                    "is_korea": (country == "KR"),
+                    "clean_ko": ko_name if ko_name else eng_name
+                })
+    except Exception:
+        pass
     return matches
 
 # -------------------------------------------------------------
@@ -312,8 +279,8 @@ st.sidebar.markdown("## 🔍 여행지 검색")
 
 user_input = st.sidebar.text_input(
     "떠나고 싶은 도시를 입력하세요:",
-    value="모스크바",
-    help="두 글자만 입력해도 실시간 추천됩니다. (예: 모스크바, 서울, 부산, 수원, 제주 등)"
+    value="시흥",
+    help="국내 모든 도시(시흥, 전주, 부산 등)와 전 세계 도시를 실시간으로 검색할 수 있습니다."
 ).strip()
 
 suggestions = search_smart_cities(user_input)
@@ -330,71 +297,23 @@ if suggestions:
     city_info["currency"] = final_curr if final_curr else city_info["currency"]
 else:
     st.sidebar.warning("일치하는 도시가 없습니다.")
-    city_info = GLOBAL_CITY_DB[9]  # 모스크바 기본값
-    selected_city_name = "모스크바 (Moscow, RU)"
+    city_info = GLOBAL_CITY_DB[0]
+    selected_city_name = "서울 (Seoul, KR)"
 
 # -------------------------------------------------------------
-# 5. API 호출 함수들 (이모지 제거 버그 완벽 수정 카카오 검색)
+# 5. 카카오 로컬 REST 랭킹 검색 함수 (순수 한글 추출)
 # -------------------------------------------------------------
-@st.cache_data(ttl=86400)
-def fetch_wiki_image(query_name):
-    url = "https://en.wikipedia.org/w/api.php"
-    params = {
-        "action": "query",
-        "format": "json",
-        "prop": "pageimages",
-        "generator": "search",
-        "gsrsearch": query_name,
-        "gsrlimit": 1,
-        "pithumbsize": 600
-    }
-    headers = {"User-Agent": "TravelDashboardApp/1.0 (travel_project)"}
-    try:
-        res = requests.get(url, params=params, headers=headers, timeout=4)
-        if res.status_code == 200:
-            pages = res.json().get("query", {}).get("pages", {})
-            for _, page in pages.items():
-                if "thumbnail" in page:
-                    return page["thumbnail"]["source"]
-    except Exception:
-        pass
-    return "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600&auto=format&fit=crop&q=80"
-
-def fetch_kakao_place(keyword):
-    if not KAKAO_MAP_API_KEY:
-        return {"success": False, "msg": "KAKAO_MAP_API_KEY가 비어 있습니다."}
-    clean_keyword = re.sub(r'[^가-힣a-zA-Z0-9\s]', '', keyword).strip()
-    url = "https://dapi.kakao.com/v2/local/search/keyword.json"
-    headers = {"Authorization": f"KakaoAK {KAKAO_MAP_API_KEY}"}
-    params = {"query": clean_keyword, "size": 1}
-    try:
-        res = requests.get(url, headers=headers, params=params, timeout=5)
-        if res.status_code == 200:
-            docs = res.json().get("documents", [])
-            if docs:
-                return {
-                    "success": True,
-                    "lat": float(docs[0]["y"]),
-                    "lng": float(docs[0]["x"]),
-                    "place_name": docs[0].get("place_name", ""),
-                    "address": docs[0].get("address_name", ""),
-                    "place_url": docs[0].get("place_url", ""),
-                }
-            return {"success": False, "msg": f"'{clean_keyword}' 검색 결과가 없습니다."}
-        return {"success": False, "status_code": res.status_code, "msg": res.text}
-    except Exception as e:
-        return {"success": False, "msg": f"네트워크 오류: {str(e)}"}
-
 @st.cache_data(ttl=1800)
-def fetch_kakao_top_ranking_places(city_raw_name, category_type="restaurant", size=4):
-    """이모지와 괄호를 제거하고 순수 한글 도시명만 추출하여 검색"""
+def fetch_kakao_top_ranking_places(search_name, category_type="restaurant", size=4):
+    """국내 모든 도시의 카카오맵 랭킹 상위 식당/카페 검색"""
     if not KAKAO_MAP_API_KEY:
         return []
     
-    korean_part = city_raw_name.split("(")[0]
+    # 괄호 앞부분에서 순수 한글 도시명만 정확하게 추출
+    korean_part = search_name.split("(")[0]
     pure_city = re.sub(r'[^가-힣]', '', korean_part).strip()
     if not pure_city:
-        pure_city = "서울"
+        pure_city = "시흥"
     
     if category_type == "restaurant":
         query = f"{pure_city} 맛집"
@@ -425,7 +344,7 @@ def fetch_kakao_top_ranking_places(city_raw_name, category_type="restaurant", si
                     "category": label_text,
                     "lat": float(d.get("y")),
                     "lng": float(d.get("x")),
-                    "desc": f"📍 {d.get('road_address_name', d.get('address_name'))} | 📞 {d.get('phone') if d.get('phone') else '전화번호 정보 없음'}",
+                    "desc": f"📍 {d.get('road_address_name', d.get('address_name'))} | 📞 {d.get('phone') if d.get('phone') else '전화번호 미등록'}",
                     "url": d.get("place_url")
                 })
             return places
@@ -434,8 +353,9 @@ def fetch_kakao_top_ranking_places(city_raw_name, category_type="restaurant", si
     return []
 
 @st.cache_data(ttl=600)
-def fetch_weather(city_query):
-    url = f"https://api.openweathermap.org/data/2.5/weather?q={city_query}&appid={OPENWEATHER_API_KEY}&units=metric&lang=kr"
+def fetch_weather(lat, lng):
+    """좌표 기반 실시간 날씨 조회"""
+    url = f"https://api.openweathermap.org/data/2.5/weather?lat={lat}&lon={lng}&appid={OPENWEATHER_API_KEY}&units=metric&lang=kr"
     try:
         res = requests.get(url, timeout=5)
         if res.status_code == 200:
@@ -462,10 +382,7 @@ def fetch_exchange_rate(target_currency):
                 return 1.0 / float(rate)
     except Exception:
         pass
-    fallback = {
-        "USD": 1335.0, "EUR": 1450.0, "JPY": 9.12, "GBP": 1715.0,
-        "CNY": 185.0, "RUB": 14.8, "AUD": 880.0, "VND": 0.054
-    }
+    fallback = {"USD": 1335.0, "EUR": 1450.0, "JPY": 9.12, "RUB": 14.8, "CNY": 185.0}
     return fallback.get(target_currency, 1300.0)
 
 # -------------------------------------------------------------
@@ -476,12 +393,6 @@ st.title(f"✈️ {selected_city_name} 여행 대시보드")
 lat = city_info["lat"]
 lng = city_info["lng"]
 
-if city_info.get("is_korea"):
-    kakao_result = fetch_kakao_place(city_info.get("kakao_keyword", "서울특별시청"))
-    if kakao_result.get("success"):
-        lat = kakao_result["lat"]
-        lng = kakao_result["lng"]
-
 st.markdown("##### 📍 여행지 위치 & 🍽️ 맛집/카페 지도 탐색")
 
 place_filter = st.radio(
@@ -490,45 +401,26 @@ place_filter = st.radio(
     horizontal=True
 )
 
-pure_city_key = re.sub(r'[^가-힣]', '', selected_city_name.split("(")[0]).strip()
-
 selected_places = []
 
 if place_filter != "🏙️ 도시 중심만 보기":
-    # 1. 대한민국 도시인 경우 카카오 API로 실시간 검색
     if city_info.get("is_korea"):
+        target_name = city_info.get("clean_ko", selected_city_name)
         if "레스토랑" in place_filter or "전체" in place_filter:
-            selected_places.extend(fetch_kakao_top_ranking_places(selected_city_name, "restaurant", size=3))
+            selected_places.extend(fetch_kakao_top_ranking_places(target_name, "restaurant", size=3))
         if "카페" in place_filter or "전체" in place_filter:
-            selected_places.extend(fetch_kakao_top_ranking_places(selected_city_name, "cafe", size=3))
-    
-    # 2. 카카오 API 결과가 없거나 해외 도시인 경우 FALLBACK_PLACES_DB에서 보충
-    if not selected_places:
-        matched_fb = None
-        for fb_k in FALLBACK_PLACES_DB.keys():
-            if fb_k in pure_city_key or fb_k in selected_city_name:
-                matched_fb = fb_k
-                break
-        if matched_fb:
-            items = FALLBACK_PLACES_DB[matched_fb]
-            if "레스토랑" in place_filter:
-                selected_places = [p for p in items if p["category"] == "레스토랑"]
-            elif "카페" in place_filter:
-                selected_places = [p for p in items if p["category"] == "카페"]
-            elif "전체" in place_filter:
-                selected_places = items
+            selected_places.extend(fetch_kakao_top_ranking_places(target_name, "cafe", size=3))
 
 # 지도 데이터프레임 구성
 map_rows = [{"lat": lat, "lon": lng}]
 for p in selected_places:
     map_rows.append({"lat": p["lat"], "lon": p["lng"]})
 
-map_df = pd.DataFrame(map_rows)
-st.map(map_df, zoom=12)
+st.map(pd.DataFrame(map_rows), zoom=12)
 
-# 화면에 랭킹 장소 카드 출력
+# 랭킹 카드 출력
 if selected_places:
-    st.markdown(f"**🌟 랭킹 추천 장소 ({selected_city_name} 기준 {len(selected_places)}곳):**")
+    st.markdown(f"**🌟 카카오맵 랭킹 추천 장소 ({len(selected_places)}곳):**")
     p_cols = st.columns(min(len(selected_places), 3))
     for idx, pl in enumerate(selected_places):
         with p_cols[idx % 3]:
@@ -538,10 +430,8 @@ if selected_places:
             st.write(pl.get("desc", ""))
             if pl.get("url"):
                 st.markdown(f"[🔗 카카오맵에서 길찾기 및 리뷰]({pl['url']})")
-            else:
-                st.markdown(f"[🔗 구글 지도에서 길찾기](https://www.google.com/maps/search/{pl['name']})")
 elif place_filter != "🏙️ 도시 중심만 보기":
-    st.info("ℹ️ 해당 도시의 실시간 장소 목록을 불러오는 중이거나 카카오 API 키를 확인해주세요.")
+    st.info("ℹ️ 해당 도시의 실시간 랭킹 데이터를 수신 중이거나 등록된 매장이 없습니다.")
 
 st.markdown("---")
 
@@ -552,7 +442,7 @@ col_weather, col_rate = st.columns([1, 1])
 
 with col_weather:
     st.subheader("🌤️ 현지 날씨")
-    weather_data = fetch_weather(city_info["city_query"])
+    weather_data = fetch_weather(lat, lng)
     temp = weather_data["main"]["temp"]
     feels_like = weather_data["main"]["feels_like"]
     humidity = weather_data["main"]["humidity"]
@@ -609,22 +499,16 @@ with col_rate:
         )
 
 # -------------------------------------------------------------
-# 8. 접이식 환율 계산기 및 슬라이더 (Expander)
+# 8. 접이식 환율 계산기 (Expander)
 # -------------------------------------------------------------
 with st.expander(f"환율 계산기 & 은행 우대율 설정 ({target_curr})", expanded=True):
     st.markdown("##### ⚙️ 환율 상세 옵션")
     s_col1, s_col2 = st.columns(2)
     with s_col1:
-        new_spread = st.slider(
-            "스프레드율 (%)", min_value=0.5, max_value=4.0, 
-            value=float(st.session_state["spread_rate"]), step=0.05, key="slider_spread"
-        )
+        new_spread = st.slider("스프레드율 (%)", min_value=0.5, max_value=4.0, value=float(st.session_state["spread_rate"]), step=0.05, key="slider_spread")
         st.session_state["spread_rate"] = new_spread
     with s_col2:
-        new_discount = st.slider(
-            "은행 우대율 (%)", min_value=0, max_value=100, 
-            value=int(st.session_state["discount_rate"]), step=5, key="slider_discount"
-        )
+        new_discount = st.slider("은행 우대율 (%)", min_value=0, max_value=100, value=int(st.session_state["discount_rate"]), step=5, key="slider_discount")
         st.session_state["discount_rate"] = new_discount
 
     if target_curr != "KRW":
@@ -636,190 +520,28 @@ with st.expander(f"환율 계산기 & 은행 우대율 설정 ({target_curr})", 
     st.markdown("---")
     st.markdown("##### 💵 금액 환전 계산")
 
-    calc_direction = st.radio(
-        "환전 방식 선택:",
-        [
-            f"원화(KRW) ➡️ 현지 통화({target_curr}) [사실 때 환율 적용]",
-            f"현지 통화({target_curr}) ➡️ 원화(KRW) [파실 때 환율 적용]",
-        ],
-    )
-
+    calc_direction = st.radio("환전 방식 선택:", [f"원화(KRW) ➡️ 현지 통화({target_curr}) [사실 때 환율 적용]", f"현지 통화({target_curr}) ➡️ 원화(KRW) [파실 때 환율 적용]"])
     is_krw_to_foreign = "원화(KRW) ➡️" in calc_direction
-    amount_input = st.number_input(
-        "환전할 금액 입력:",
-        min_value=0.0,
-        value=100000.0 if is_krw_to_foreign else 100.0,
-        step=10.0,
-    )
+    amount_input = st.number_input("환전할 금액 입력:", min_value=0.0, value=100000.0 if is_krw_to_foreign else 100.0, step=10.0)
 
     fmt = "{:,.4f}원" if base_rate < 1.0 else "{:,.2f}원"
     if is_krw_to_foreign:
         converted_result = float(amount_input / cash_buy) if cash_buy > 0 else 0.0
-        st.success(
-            f"💜 **{amount_input:,.0f} KRW** ➡️ **{converted_result:,.2f} {target_curr}** "
-            f"(적용 환율: 1 {target_curr} = {fmt.format(cash_buy)})"
-        )
+        st.success(f"💜 **{amount_input:,.0f} KRW** ➡️ **{converted_result:,.2f} {target_curr}** (적용 환율: 1 {target_curr} = {fmt.format(cash_buy)})")
     else:
         converted_result = float(amount_input * cash_sell)
-        st.success(
-            f"💜 **{amount_input:,.2f} {target_curr}** ➡️ **{converted_result:,.0f} KRW** "
-            f"(적용 환율: 1 {target_curr} = {fmt.format(cash_sell)})"
-        )
+        st.success(f"💜 **{amount_input:,.2f} {target_curr}** ➡️ **{converted_result:,.0f} KRW** (적용 환율: 1 {target_curr} = {fmt.format(cash_sell)})")
 
 # -------------------------------------------------------------
-# 9. 도시별 심층 여행 가이드 (모스크바 포함 완비!)
-# -------------------------------------------------------------
-TRAVEL_GUIDE_DB = {
-    "모스크바": {
-        "spots": [
-            {"name": "Saint Basil's Cathedral", "kr_name": "붉은 광장 & 성 바실리 대성당", "desc": "러시아의 심장과 동화 같은 알록달록한 양파 돔 성당"},
-            {"name": "Moscow Kremlin", "kr_name": "크렘린 궁전 & 무명용사의 묘", "desc": "황금빛 돔의 성당 군락과 영원의 불꽃이 타오르는 역사적 요새"},
-            {"name": "GUM Department Store", "kr_name": "굼(GUM) 백화점 & 참새언덕", "desc": "유리 아케이드 건축미, 명물 아이스크림과 모스크바 전경을 내려다보는 전망대"}
-        ],
-        "stays": [
-            {"area": "트베르스카야 대로", "type": "비즈니스 & 관광 중심", "desc": "붉은 광장까지 도보 이동 가능 및 대형 쇼핑가 인접"},
-            {"area": "아르바트 거리", "type": "문화 예술 보행자 거리", "desc": "빅토르 최 추모벽, 기념품점, 카페가 밀집한 활기찬 거리"},
-            {"area": "자모스크보레치예", "type": "조용하고 안전한 구역", "desc": "트레티야코프 미술관 근처의 고즈넉한 전통 주거지"}
-        ],
-        "foods": [
-            {"name": "비프 스트로가노프", "desc": "부드러운 소고기를 볶아 사워크림 소스를 얹어 먹는 러시아 대표 고급 요리"},
-            {"name": "펠메니 (러시아식 전통 만두)", "desc": "고기 소를 넣어 빚어 스메타나(사워크림)를 찍어 먹는 국민 음식"},
-            {"name": "피로그 & 피로시키", "desc": "감자, 고기, 양배추 등을 채워 노릇노릇 구워낸 전통 빵"}
-        ],
-        "tips": [
-            "모스크바 지하철역들은 '지하 궁전'처럼 대리석과 모자이크로 장식되어 있어 메트로 투어를 추천합니다.",
-            "대중교통 이용 시 '트로이카(Troika)' 카드를 구매해 충전하면 매우 저렴합니다."
-        ]
-    },
-    "상트페테르부르크": {
-        "spots": [
-            {"name": "Hermitage Museum", "kr_name": "에르미타주 미술관 (겨울궁전)", "desc": "세계 3대 박물관 중 하나이자 제정 러시아 궁전의 극치"},
-            {"name": "Church of the Savior on Blood", "kr_name": "피의 구원 성당", "desc": "화려한 모자이크 벽화로 둘러싸인 정교한 성당"},
-            {"name": "Nevsky Prospekt", "kr_name": "네프스키 대로 & 카잔 대성당", "desc": "로마 베드로 대성당을 본뜬 웅장한 콜로네이드 건축"}
-        ],
-        "stays": [
-            {"area": "네프스키 대로 중심부", "type": "관광 최적", "desc": "겨울궁전 및 운하 유람선 선착장 도보 이동"},
-            {"area": "폰탄카 운하 주변", "type": "클래식 감성 호텔", "desc": "운하 뷰가 아름다운 유럽풍 호텔 밀집"}
-        ],
-        "foods": [
-            {"name": "보르시", "desc": "비트를 넣은 붉은 수프와 사워크림"},
-            {"name": "블리니", "desc": "연어와 캐비어를 싸 먹는 얇은 팬케이크"}
-        ],
-        "tips": [
-            "백야 축제 기간(5월 말~7월) 네바강 도개교 행사는 필수 코스입니다."
-        ]
-    },
-    "서울": {
-        "spots": [
-            {"name": "Gyeongbokgung", "kr_name": "경복궁 & 북촌한옥마을", "desc": "조선의 정궁이자 고즈넉한 전통 한옥 골목과 삼청동 카페 거리"},
-            {"name": "N Seoul Tower", "kr_name": "N서울타워 (남산타워)", "desc": "서울 360도 파노라마 야경과 사랑의 자물쇠 명소"},
-            {"name": "Dongdaemun Design Plaza", "kr_name": "동대문디자인플라자 (DDP)", "desc": "자하 하디드가 설계한 우주선 모양의 비정형 건축물"}
-        ],
-        "stays": [
-            {"area": "명동 / 을지로", "type": "쇼핑 & 환승 요충지", "desc": "지하철 2·3·4호선 접근성 최상"},
-            {"area": "홍대 / 연남동", "type": "젊음과 버스킹", "desc": "공항철도 직결, 감성 부티크 밀집"},
-            {"area": "강남 / 삼성동", "type": "비즈니스 & 프리미엄 럭셔리", "desc": "코엑스 몰 및 쾌적한 호캉스 인프라"}
-        ],
-        "foods": [
-            {"name": "K-바비큐 (숙성 삼겹살)", "desc": "숯불 불판에 구워 쌈채소와 즐기는 한국 대표 외식"},
-            {"name": "광장시장 빈대떡 & 육회", "desc": "두툼한 녹두빈대떡과 마약김밥"}
-        ],
-        "tips": [
-            "한복 착용 시 4대 궁궐과 종묘에 무료로 입장할 수 있습니다."
-        ]
-    },
-    "부산": {
-        "spots": [
-            {"name": "Haeundae Beach", "kr_name": "해운대 해수욕장 & 블루라인파크", "desc": "해변 열차와 스카이캡슐을 즐길 수 있는 오션뷰 핫플레이스"},
-            {"name": "Gamcheon Culture Village", "kr_name": "감천문화마을", "desc": "알록달록한 계단식 주택과 어린왕자 포토존이 있는 한국의 산토리니"},
-            {"name": "Gwangalli Beach", "kr_name": "광안리 해수욕장 & 광안대교", "desc": "화려한 광안대교 야경과 감성 오션뷰 카페"}
-        ],
-        "stays": [
-            {"area": "해운대", "type": "오션뷰 럭셔리 호텔", "desc": "해수욕장 도보 이동, 고급 호텔 밀집"},
-            {"area": "광안리", "type": "감성 숙소", "desc": "광안대교 오션뷰가 펼쳐지는 힐링 구역"}
-        ],
-        "foods": [
-            {"name": "부산 돼지국밥", "desc": "진하고 뽀얀 사골 육수에 부추와 새우젓을 넣어 먹는 소울푸드"},
-            {"name": "밀면 (물밀면 & 비빔밀면)", "desc": "살얼음 동동 띄운 시원하고 쫄깃한 면발"}
-        ],
-        "tips": [
-            "블루라인파크 스카이캡슐은 주말 방문 시 일주일 전 사전 예매를 권장합니다."
-        ]
-    },
-    "수원": {
-        "spots": [
-            {"name": "Suwon Hwaseong Fortress", "kr_name": "수원 화성 & 방화수류정", "desc": "정조의 효심이 깃든 유네스코 세계문화유산이자 최고의 피크닉/야경 명소"},
-            {"name": "Hwaseong Haenggung", "kr_name": "화성행궁 & 행리단길", "desc": "왕이 머물던 웅장한 임시 궁궐과 감성 카페·편집숍 골목"},
-            {"name": "Starfield Suwon", "kr_name": "스타필드 수원 & 별마당 도서관", "desc": "웅장한 행성 모형과 책으로 가득 찬 초대형 복합 문화 공간"}
-        ],
-        "stays": [
-            {"area": "행궁동 / 행리단길", "type": "한옥 감성 게스트하우스 & 부티크", "desc": "성곽 산책과 카페 투어에 최적화된 위치"},
-            {"area": "수원역 인근", "type": "KTX & 지하철 교통 중심 호텔", "desc": "KTX, 1호선, 수인분당선 환승 편리"}
-        ],
-        "foods": [
-            {"name": "수원 왕갈비", "desc": "소금 양념으로 감칠맛을 살려 숯불에 구워내는 수원 대표 향토 미식"},
-            {"name": "수원 통닭거리 가마솥 통닭", "desc": "가마솥에서 바삭하게 튀겨내 닭똥집을 덤으로 주는 원조 치킨"}
-        ],
-        "tips": [
-            "화성어차를 탑승하면 화성 성곽 주요 명소를 편안하게 둘러볼 수 있습니다."
-        ]
-    }
-}
-
-# -------------------------------------------------------------
-# 10. 화면 렌더링
+# 9. 더 알아보기 (실시간 정보 바로가기)
 # -------------------------------------------------------------
 st.markdown("---")
-st.subheader(f"🪻 {selected_city_name} 여행 핵심 가이드")
-
-matched_guide_key = None
-for key in TRAVEL_GUIDE_DB.keys():
-    if key in selected_city_name or key in pure_city_key:
-        matched_guide_key = key
-        break
-
-if matched_guide_key:
-    guide = TRAVEL_GUIDE_DB[matched_guide_key]
-    tab_spot, tab_stay, tab_food, tab_tip = st.tabs(["🏛️ 추천 명소", "🏨 추천 숙소", "🍜 대표 먹거리", "💡 여행 꿀팁"])
-    
-    with tab_spot:
-        cols = st.columns(len(guide["spots"]))
-        for idx, spot in enumerate(guide["spots"]):
-            with cols[idx]:
-                img_query = spot.get("name", spot.get("kr_name", ""))
-                img_url = fetch_wiki_image(img_query)
-                st.image(img_url, use_container_width=True)
-                title = spot.get("kr_name", spot.get("name"))
-                st.markdown(f"##### **{title}**")
-                st.write(spot["desc"])
-                
-    with tab_stay:
-        cols = st.columns(len(guide["stays"]))
-        for idx, stay in enumerate(guide["stays"]):
-            with cols[idx]:
-                st.markdown(f"##### **{stay['area']}**")
-                st.caption(f"추천 유형: {stay['type']}")
-                st.write(stay["desc"])
-                
-    with tab_food:
-        cols = st.columns(len(guide["foods"]))
-        for idx, food in enumerate(guide["foods"]):
-            with cols[idx]:
-                st.markdown(f"##### **{food['name']}**")
-                st.write(food["desc"])
-                
-    with tab_tip:
-        for idx, tip in enumerate(guide["tips"], 1):
-            st.info(f"**Tip {idx}:** {tip}")
-else:
-    st.info(f"선택하신 **{selected_city_name}**의 실시간 여행 정보를 아래 바로가기 버튼을 통해 확인해 보세요.")
-
 st.markdown("##### 🔍 더 알아보기 (실시간 정보 바로가기)")
-search_query = city_info['city_query']
+search_target = city_info.get("clean_ko", selected_city_name)
 b_col1, b_col2, b_col3 = st.columns(3)
 with b_col1:
-    st.link_button("📍 구글 지도에서 명소/맛집 보기", f"https://www.google.com/maps/search/{search_query}+attractions")
+    st.link_button("📍 구글 지도에서 명소/맛집 보기", f"https://www.google.com/maps/search/{search_target}+맛집")
 with b_col2:
-    st.link_button("🏨 아고다 숙소 최저가 검색", f"https://www.agoda.com/search?city={search_query}")
+    st.link_button("🏨 아고다 숙소 최저가 검색", f"https://www.agoda.com/search?city={search_target}")
 with b_col3:
-    st.link_button("✈️ 트립어드바이저 여행 후기", f"https://www.tripadvisor.com/Search?q={search_query}")
+    st.link_button("✈️ 트립어드바이저 여행 후기", f"https://www.tripadvisor.com/Search?q={search_target}")
