@@ -17,7 +17,7 @@ if parent_env_path.exists():
 else:
     load_dotenv(find_dotenv())
 
-# page_config 제목에서 '라벤더' 제거
+# 라벤더 단어 제외한 깔끔한 브라우저 타이틀
 st.set_page_config(page_title="세계 여행 대시보드", layout="wide", page_icon="✈️")
 
 # -------------------------------------------------------------
@@ -28,7 +28,6 @@ def get_pretendard_font_css():
     font_extensions = [".woff2", ".woff", ".ttf", ".otf"]
     font_file = None
     
-    # 동일 폴더 및 하위 fonts, static 폴더 순회
     search_paths = [current_dir, current_dir / "fonts", current_dir / "static"]
     for folder in search_paths:
         if folder.exists():
@@ -56,7 +55,6 @@ def get_pretendard_font_css():
         }}
         """
     else:
-        # 폰트 파일이 아직 경로에 없는 경우를 위한 웹폰트 fallback
         font_face_rule = """
         @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
         """
@@ -224,6 +222,82 @@ GLOBAL_CITY_DB = [
 ]
 
 # -------------------------------------------------------------
+# 2-1. 도시별 대표 레스토랑 & 감성 카페 큐레이션 좌표 DB
+# -------------------------------------------------------------
+CITY_PLACES_DB = {
+    "서울": [
+        {"name": "광장시장 순희네빈대떡", "category": "레스토랑", "lat": 37.5702, "lng": 126.9998, "desc": "바삭하고 고소한 서울 전통 녹두빈대떡의 성지"},
+        {"name": "명동교자 본점", "category": "레스토랑", "lat": 37.5635, "lng": 126.9855, "desc": "진한 고기 육수의 칼국수와 마늘김치가 일품인 미슐랭 빕구르망"},
+        {"name": "우래옥 (평양냉면)", "category": "레스토랑", "lat": 37.5682, "lng": 127.0003, "desc": "깊고 진한 한우 육향을 자랑하는 70년 전통 평양냉면 명가"},
+        {"name": "어니언 안국 (Onion)", "category": "카페", "lat": 37.5794, "lng": 126.9868, "desc": "고즈넉한 한옥 대청마루에서 팡도르와 커피를 즐기는 감성 베이커리"},
+        {"name": "블루보틀 삼청 한옥", "category": "카페", "lat": 37.5815, "lng": 126.9818, "desc": "국립현대미술관과 기와지붕 뷰가 내려다보이는 스페셜티 커피"},
+        {"name": "테일러커피 연남", "category": "카페", "lat": 37.5615, "lng": 126.9248, "desc": "달콤한 크림 모카와 드립 커피로 유명한 홍대/연남동 명소"}
+    ],
+    "베이징": [
+        {"name": "전취덕 (왕푸징 본점)", "category": "레스토랑", "lat": 39.9142, "lng": 116.4115, "desc": "150년 역사를 자랑하는 정통 베이징 카오야(북경오리) 전문점"},
+        {"name": "동래순 (왕푸징 훠궈)", "category": "레스토랑", "lat": 39.9125, "lng": 116.4102, "desc": "구리 냄비에 숯불로 양고기를 데쳐 먹는 100년 전통의 훠궈 명가"},
+        {"name": "대동카오야 (싼리툰)", "category": "레스토랑", "lat": 39.9348, "lng": 116.4552, "desc": "기름기를 쏙 뺀 현대적이고 바삭한 퓨전 북경오리 파인다이닝"},
+        {"name": "메탈핸즈 (Metal Hands 호퉁)", "category": "카페", "lat": 39.9385, "lng": 116.4124, "desc": "베이징 전통 골목(호퉁) 속에 숨겨진 감각적인 스페셜티 에스프레소 바"},
+        {"name": "보이저 커피 (Voyage Coffee)", "category": "카페", "lat": 39.9324, "lng": 116.3982, "desc": "칠성사합원 고택을 개조한 세련된 핸드드립 전문 카페"},
+        {"name": "아라비카 % 싼리툰", "category": "카페", "lat": 39.9355, "lng": 116.4548, "desc": "깔끔한 화이트 인테리어와 부드러운 교토 라떼로 유명한 핫플레이스"}
+    ],
+    "도쿄": [
+        {"name": "스시 다이와 (도요스)", "category": "레스토랑", "lat": 35.6454, "lng": 139.7915, "desc": "신선한 수산시장 직송 제철 생선으로 쥐어주는 오마카세 스시"},
+        {"name": "이치란 라멘 (시부야점)", "category": "레스토랑", "lat": 35.6612, "lng": 139.7008, "desc": "개인 독서실 좌석에서 나만의 커스텀으로 즐기는 진한 돈코츠 라멘"},
+        {"name": "로쿠린샤 (도쿄역 라멘스트리트)", "category": "레스토랑", "lat": 35.6812, "lng": 139.7671, "desc": "묵직하고 감칠맛 넘치는 해산물 돈골 육수에 찍어 먹는 정통 츠케멘"},
+        {"name": "푸글렌 도쿄 (Fuglen 아사쿠사)", "category": "카페", "lat": 35.7145, "lng": 139.7942, "desc": "노르웨이 오슬로 발상의 빈티지 북유럽 인테리어와 향긋한 시트러스 커피"},
+        {"name": "카페 드 랑브르 (Cafe de L'Ambre)", "category": "카페", "lat": 35.6698, "lng": 139.7625, "desc": "1948년부터 긴자를 지켜온 융드립 커피의 전설적인 노포 킷사텐"},
+        {"name": "블루보틀 키요스미 시라카와", "category": "카페", "lat": 35.6798, "lng": 139.8005, "desc": "도쿄 커피 1번지로 불리는 한적한 동네의 블루보틀 일본 1호 플래그십"}
+    ],
+    "오사카": [
+        {"name": "다루마 쿠시카츠 (도톤보리)", "category": "레스토랑", "lat": 34.6687, "lng": 135.5015, "desc": "소스 두 번 찍기 금지! 바삭바삭 갓 튀겨낸 원조 꼬치튀김 전문점"},
+        {"name": "미즈노 (Mizuno 오코노미야키)", "category": "레스토랑", "lat": 34.6682, "lng": 135.5028, "desc": "미슐랭 가이드에 등재된 참마 100% 반죽의 부드러운 오코노미야키"},
+        {"name": "앗치치혼포 (타코야키)", "category": "레스토랑", "lat": 34.6691, "lng": 135.5034, "desc": "도톤보리 강변에서 바삭하고 큼직한 문어가 씹히는 로컬 타코야키"},
+        {"name": "모토커피 (MOTO COFFEE)", "category": "카페", "lat": 34.6922, "lng": 135.5085, "desc": "기타하마 나카노시마 강변 테라스에서 리버뷰와 함께 즐기는 푸딩과 라떼"},
+        {"name": "브루클린 로스팅 컴퍼니", "category": "카페", "lat": 34.6918, "lng": 135.5072, "desc": "넓은 강변 테라스와 향이 짙은 아메리카노가 매력적인 로스터리 카페"},
+        {"name": "마루후쿠 커피점 (센니치마에 본점)", "category": "카페", "lat": 34.6668, "lng": 135.5038, "desc": "1934년 창업한 앤티크 분위기의 다방으로 진한 드립커피와 핫케이크 명소"}
+    ],
+    "파리": [
+        {"name": "르 불롱제 (Le Bouillon Chartier)", "category": "레스토랑", "lat": 48.8718, "lng": 2.3432, "desc": "100년 넘는 역사의 벨 에포크 양식 홀에서 합리적인 가격에 맛보는 프랑스 정통 가정식"},
+        {"name": "레 콕 (Les Cocottes 에펠탑)", "category": "레스토랑", "lat": 48.8578, "lng": 2.3025, "desc": "주물 냄비에 정성껏 졸여낸 비프 부르기뇽과 에스카르고 맛집"},
+        {"name": "페드로 (Pink Mamma)", "category": "레스토랑", "lat": 48.8824, "lng": 2.3338, "desc": "유리 온실 루프탑 인테리어와 트러플 파스타로 유명한 파리 최고 핫플레이스"},
+        {"name": "카페 드 플로르 (Café de Flore)", "category": "카페", "lat": 48.8542, "lng": 2.3325, "desc": "사르트르와 카뮈가 사랑했던 생제르맹 데프레의 전설적인 문학 카페"},
+        {"name": "레 되 마고 (Les Deux Magots)", "category": "카페", "lat": 48.8540, "lng": 2.3332, "desc": "진한 핫초콜릿과 크루아상을 즐기며 파리지앵 테라스를 만끽하는 명소"},
+        {"name": "테레스 (Télescope Cafe)", "category": "카페", "lat": 48.8665, "lng": 2.3364, "desc": "루브르 박물관 근처 골목에 위치한 미니멀하고 수준 높은 스페셜티 커피"}
+    ],
+    "상트페테르부르크": [
+        {"name": "문학 카페 (Литературное кафе)", "category": "레스토랑", "lat": 59.9362, "lng": 30.3185, "desc": "푸시킨이 마지막 결투 전 들렀던 역사적인 장소이자 품격 있는 러시아 정통 요리"},
+        {"name": "테레목 (Теремок 네프스키점)", "category": "레스토랑", "lat": 59.9345, "lng": 30.3342, "desc": "연어, 치즈, 캐비어가 들어간 즉석 얇은 팬케이크(블리니)와 보르시 맛집"},
+        {"name": "키차마치 (Мамалыга)", "category": "레스토랑", "lat": 59.9352, "lng": 30.3255, "desc": "육즙 가득한 샤슬릭과 치즈 빵(하차푸리)을 맛볼 수 있는 인기 조지아/코카서스 식당"},
+        {"name": "세베르 메트로폴 (Север-Метрополь)", "category": "카페", "lat": 59.9348, "lng": 30.3325, "desc": "1903년 문을 연 상트페테르부르크에서 가장 사랑받는 고전 제과점이자 카페"},
+        {"name": "사이공 카페 역사 유적", "category": "카페", "lat": 59.9318, "lng": 30.3495, "desc": "소련 시절 반체제 예술가와 빅토르 최가 모였던 전설적인 문화 살롱"},
+        {"name": "신치치 커피 (Bolshecoffee)", "category": "카페", "lat": 59.9548, "lng": 30.3142, "desc": "동굴 같은 아늑한 벽돌 인테리어에서 직접 볶은 원두로 내리는 로스터리"}
+    ],
+    "모스크바": [
+        {"name": "카페 푸시킨 (Кафе Пушкинъ)", "category": "레스토랑", "lat": 55.7645, "lng": 37.6045, "desc": "19세기 귀족 저택 서재 분위기에서 맛보는 최상급 비프 스트로가노프"},
+        {"name": "화이트 래빗 (White Rabbit)", "category": "레스토랑", "lat": 55.7482, "lng": 37.5835, "desc": "모스크바 시내 파노라마 뷰가 펼쳐지는 글래스 돔의 월드 베스트 50 레스토랑"},
+        {"name": "스톨로바야 57 (Столовая 57)", "category": "레스토랑", "lat": 55.7548, "lng": 37.6215, "desc": "굼(GUM) 백화점 내 위치한 정겨운 소련식 뷔페 식당이자 가성비 명소"},
+        {"name": "더블비 커피 (Double B 아르바트)", "category": "카페", "lat": 55.7505, "lng": 37.5925, "desc": "러시아 바리스타 챔피언들이 창업한 대표적인 감성 스페셜티 커피 체인"},
+        {"name": "코페마니아 (Coffeomania 볼쇼이)", "category": "카페", "lat": 55.7602, "lng": 37.6185, "desc": "부드러운 라프 커피(Raf Coffee)와 섬세한 디저트가 일품인 럭셔리 카페"}
+    ],
+    "뉴욕": [
+        {"name": "피터 루거 스테이크 (Peter Luger)", "category": "레스토랑", "lat": 40.7098, "lng": -73.9625, "desc": "1887년 문을 연 뉴욕 최고의 드라이에이징 포터하우스 스테이크 성지"},
+        {"name": "카츠 델리카트슨 (Katz's Delicatessen)", "category": "레스토랑", "lat": 40.7222, "lng": -73.9874, "desc": "훈제 파스트라미 비프가 산더미처럼 쌓여 나오는 130년 전통 샌드위치"},
+        {"name": "조스 피자 (Joe's Pizza 그리니치)", "category": "레스토랑", "lat": 40.7305, "lng": -74.0021, "desc": "바삭하고 쫄깃한 도우에 치즈가 듬뿍 올라간 정통 뉴욕식 조각 피자"},
+        {"name": "에싸 베이글 (Ess-a-Bagel)", "category": "카페", "lat": 40.7565, "lng": -73.9712, "desc": "훈제 연어(Lox)와 파 크림치즈가 터질 듯 들어간 정통 뉴욕 베이글 카페"},
+        {"name": "데보시옹 커피 (Devoción 브루클린)", "category": "카페", "lat": 40.7162, "lng": -73.9648, "desc": "콜롬비아 농장에서 항공 직송된 신선한 원두와 벽면 정원이 아름다운 로스터리"},
+        {"name": "스텀프타운 커피 (Stumptown 에이스호텔)", "category": "카페", "lat": 40.7458, "lng": -73.9882, "desc": "뉴요커들의 활기와 콜드브루로 상징되는 감성 커피 바"}
+    ],
+    "시드니": [
+        {"name": "허리케인 그릴 (달링하버)", "category": "레스토랑", "lat": -33.8725, "lng": 151.1995, "desc": "달콤 짭조름한 바비큐 소스를 발라 숯불에 구운 두툼한 폭립과 비프립"},
+        {"name": "시드니 피시 마켓 (Fish Market)", "category": "레스토랑", "lat": -33.8732, "lng": 151.1925, "desc": "갓 잡은 랍스터, 굴, 생선회를 골라 즉석에서 조리해 먹는 활기찬 수산시장"},
+        {"name": "더 그라운즈 오브 알렉산드리아", "category": "카페", "lat": -33.9108, "lng": 151.1942, "desc": "동화 속 비밀 화원처럼 꾸며진 시드니 최고의 정원형 브런치 & 스페셜티 카페"},
+        {"name": "싱글 오 (Single O 서리힐스)", "category": "카페", "lat": -33.8835, "lng": 151.2115, "desc": "호주 커피 혁명을 이끈 서리힐스의 힙한 원조 플랫화이트 명소"},
+        {"name": "서큘러 키 뷰 카페 (Opera Bar)", "category": "카페", "lat": -33.8582, "lng": 151.2145, "desc": "오페라 하우스 바로 아래 하버 브릿지 바다를 바라보며 커피와 음료를 즐기는 테라스"}
+    ]
+}
+
+# -------------------------------------------------------------
 # 3. 실시간 추천 검색 함수
 # -------------------------------------------------------------
 def search_smart_cities(query_text):
@@ -298,7 +372,7 @@ else:
     selected_city_name = "서울 (Seoul, KR)"
 
 # -------------------------------------------------------------
-# 5. API 호출 함수들 (위키미디어 이미지 API 포함)
+# 5. API 호출 함수들 (위키미디어 이미지 API, 카카오 맛집/카페 검색 포함)
 # -------------------------------------------------------------
 @st.cache_data(ttl=86400)
 def fetch_wiki_image(query_name):
@@ -326,7 +400,7 @@ def fetch_wiki_image(query_name):
     return "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600&auto=format&fit=crop&q=80"
 
 def fetch_kakao_place(keyword):
-    """카카오 로컬 REST API"""
+    """카카오 로컬 REST API: 중심 좌표 검색"""
     if not KAKAO_MAP_API_KEY:
         return {"success": False, "msg": "KAKAO_MAP_API_KEY가 비어 있습니다."}
     url = "https://dapi.kakao.com/v2/local/search/keyword.json"
@@ -349,6 +423,40 @@ def fetch_kakao_place(keyword):
         return {"success": False, "status_code": res.status_code, "msg": res.text}
     except Exception as e:
         return {"success": False, "msg": f"네트워크 오류: {str(e)}"}
+
+@st.cache_data(ttl=1800)
+def fetch_kakao_category_places(lat, lng, category_code, size=5):
+    """카카오 로컬 REST API: 반경 내 음식점(FD6) 또는 카페(CE7) 실시간 검색"""
+    if not KAKAO_MAP_API_KEY:
+        return []
+    url = "https://dapi.kakao.com/v2/local/search/category.json"
+    headers = {"Authorization": f"KakaoAK {KAKAO_MAP_API_KEY}"}
+    params = {
+        "category_group_code": category_code,
+        "x": str(lng),
+        "y": str(lat),
+        "radius": 4000,
+        "sort": "popularity",
+        "size": size
+    }
+    try:
+        res = requests.get(url, headers=headers, params=params, timeout=5)
+        if res.status_code == 200:
+            docs = res.json().get("documents", [])
+            places = []
+            for d in docs:
+                places.append({
+                    "name": d.get("place_name"),
+                    "category": "카페" if category_code == "CE7" else "레스토랑",
+                    "lat": float(d.get("y")),
+                    "lng": float(d.get("x")),
+                    "desc": f"{d.get('address_name')} | {d.get('phone', '전화번호 미등록')}",
+                    "url": d.get("place_url")
+                })
+            return places
+    except Exception:
+        pass
+    return []
 
 @st.cache_data(ttl=600)
 def fetch_weather(city_query):
@@ -388,10 +496,9 @@ def fetch_exchange_rate(target_currency):
     return fallback.get(target_currency, 1300.0)
 
 # -------------------------------------------------------------
-# 6. 대시보드 상단 (지도 렌더링)
+# 6. 대시보드 상단 (지도 및 레스토랑/카페 검색 & 다중 핀 렌더링)
 # -------------------------------------------------------------
 st.title(f"✈️ {selected_city_name} 여행 대시보드")
-st.subheader("📍 여행지 위치")
 
 lat = city_info["lat"]
 lng = city_info["lng"]
@@ -401,13 +508,72 @@ if city_info.get("is_korea"):
     if kakao_result.get("success"):
         lat = kakao_result["lat"]
         lng = kakao_result["lng"]
-        st.success("💜 카카오 REST API 좌표 매핑 완료")
-        st.markdown(
-            f"**상세 장소**: {kakao_result['place_name']} ({kakao_result['address']}) | "
-            f"[카카오맵 바로가기]({kakao_result['place_url']})"
-        )
 
-st.map(pd.DataFrame({"lat": [lat], "lon": [lng]}), zoom=11)
+# --- [신규 기능] 레스토랑 & 카페 실시간 필터 및 검색 ---
+st.markdown("##### 📍 여행지 위치 & 🍽️ 맛집/카페 지도 탐색")
+
+place_col1, place_col2 = st.columns([1, 2])
+with place_col1:
+    place_filter = st.radio(
+        "지도에 표시할 장소 선택:",
+        ["🏙️ 도시 중심만 보기", "🍽️ 레스토랑 추천 보기", "☕ 감성 카페 추천 보기", "✨ 전체 모아보기"],
+        horizontal=False
+    )
+
+# 도시 매칭 키 찾기
+matched_key = None
+for k in CITY_PLACES_DB.keys():
+    if k in selected_city_name:
+        matched_key = k
+        break
+
+# 선택한 필터에 따른 맛집/카페 데이터 수집
+selected_places = []
+
+if city_info.get("is_korea"):
+    # 한국 도시: 카카오 REST API로 실시간 인기 맛집/카페 호출
+    if "레스토랑" in place_filter or "전체" in place_filter:
+        selected_places.extend(fetch_kakao_category_places(lat, lng, "FD6", size=4))
+    if "카페" in place_filter or "전체" in place_filter:
+        selected_places.extend(fetch_kakao_category_places(lat, lng, "CE7", size=4))
+else:
+    # 해외 도시: 검증된 도시별 대표 레스토랑 & 카페 DB에서 추출
+    if matched_key and matched_key in CITY_PLACES_DB:
+        db_items = CITY_PLACES_DB[matched_key]
+        if "레스토랑" in place_filter:
+            selected_places = [p for p in db_items if p["category"] == "레스토랑"]
+        elif "카페" in place_filter:
+            selected_places = [p for p in db_items if p["category"] == "카페"]
+        elif "전체" in place_filter:
+            selected_places = db_items
+
+# 지도 데이터프레임 구성 (도시 중심점 + 검색된 맛집/카페 좌표들)
+map_rows = [{"lat": lat, "lon": lng, "name": f"📍 {selected_city_name} 중심"}]
+for p in selected_places:
+    map_rows.append({
+        "lat": p["lat"],
+        "lon": p["lng"],
+        "name": f"{'🍽️' if p['category'] == '레스토랑' else '☕'} {p['name']}"
+    })
+
+map_df = pd.DataFrame(map_rows)
+st.map(map_df, zoom=12)
+
+# 검색된 레스토랑/카페 목록을 카드 형태로 지도 하단에 즉시 표시
+if selected_places:
+    st.markdown(f"**🔍 지도에 핀으로 표시된 {selected_city_name} 장소 목록 ({len(selected_places)}곳):**")
+    p_cols = st.columns(min(len(selected_places), 3))
+    for idx, pl in enumerate(selected_places):
+        with p_cols[idx % 3]:
+            icon = "🍽️" if pl["category"] == "레스토랑" else "☕"
+            st.markdown(f"**{icon} {pl['name']}**")
+            st.caption(f"분류: {pl['category']}")
+            st.write(pl.get("desc", ""))
+            if pl.get("url"):
+                st.markdown(f"[🔗 카카오맵 상세 정보]({pl['url']})")
+            else:
+                st.markdown(f"[🔗 구글 지도에서 길찾기](https://www.google.com/maps/search/{pl['name']})")
+
 st.markdown("---")
 
 # -------------------------------------------------------------
@@ -476,7 +642,7 @@ with col_rate:
 # -------------------------------------------------------------
 # 8. 접이식 환율 계산기 및 슬라이더 (Expander)
 # -------------------------------------------------------------
-with st.expander(f"🧮 환율 계산기 & 은행 우대율 설정 ({target_curr})", expanded=True):
+with st.expander(f"🪻 환율 계산기 & 은행 우대율 설정 ({target_curr})", expanded=True):
     st.markdown("##### ⚙️ 환율 상세 옵션")
     s_col1, s_col2 = st.columns(2)
     with s_col1:
