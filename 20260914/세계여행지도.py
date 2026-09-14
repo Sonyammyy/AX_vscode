@@ -17,11 +17,10 @@ if parent_env_path.exists():
 else:
     load_dotenv(find_dotenv())
 
-# 라벤더 단어 제외한 깔끔한 브라우저 타이틀
 st.set_page_config(page_title="세계 여행 대시보드", layout="wide", page_icon="✈️")
 
 # -------------------------------------------------------------
-# 0-1. 프리텐다드 레귤러 폰트 로컬 연동 & 라벤더 감성 CSS
+# 0-1. 프리텐다드 레귤러 폰트 로드 & 아이콘 깨짐 방지 라벤더 CSS
 # -------------------------------------------------------------
 def get_pretendard_font_css():
     """프로젝트 경로 내 Pretendard Regular 폰트 파일을 탐색하여 Base64로 주입 (없을 시 CDN Fallback)"""
@@ -63,9 +62,14 @@ def get_pretendard_font_css():
     <style>
         {font_face_rule}
 
-        /* 프리텐다드 레귤러 전역 적용 */
-        html, body, [class*="css"], .stMarkdown, .stText, p, span, h1, h2, h3, h4, h5, h6, input, button, select, textarea, div {{
-            font-family: 'Pretendard-Regular', 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+        /* [문제 1 해결] 일반 텍스트에만 프리텐다드 적용하고, 스트림릿 아이콘 폰트는 보존 */
+        html, body, .stMarkdown, .stText, p, h1, h2, h3, h4, h5, h6, input, button, select, textarea {{
+            font-family: 'Pretendard-Regular', 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif !important;
+        }}
+
+        /* Streamlit 기본 아이콘 및 Material Symbols 폰트 보존 (arrow_down 텍스트 겹침 방지) */
+        [data-testid="stIcon"], [data-testid="stIcon"] *, [class*="material-symbols"], .material-symbols-rounded, [data-baseweb="icon"] {{
+            font-family: 'Material Symbols Rounded', 'Material Icons', sans-serif !important;
         }}
 
         /* 은은한 파스텔 라벤더 배경 */
@@ -123,9 +127,14 @@ def get_pretendard_font_css():
             color: #ffffff !important;
         }}
         
-        /* Expander */
+        /* Expander 테두리 및 헤더 */
+        [data-testid="stExpander"] {{
+            border: 1px solid #dfd3f3 !important;
+            border-radius: 12px !important;
+            background-color: #ffffff !important;
+        }}
         .streamlit-expanderHeader {{
-            background-color: #f3ecfb !important;
+            background-color: #f7f2fc !important;
             border-radius: 10px !important;
             color: #4C2882 !important;
             font-weight: 600 !important;
@@ -222,7 +231,7 @@ GLOBAL_CITY_DB = [
 ]
 
 # -------------------------------------------------------------
-# 2-1. 도시별 대표 레스토랑 & 감성 카페 큐레이션 좌표 DB
+# 2-1. 도시별 대표 레스토랑 & 감성 카페 큐레이션 좌표 DB (서울 포함!)
 # -------------------------------------------------------------
 CITY_PLACES_DB = {
     "서울": [
@@ -425,7 +434,7 @@ def fetch_kakao_place(keyword):
         return {"success": False, "msg": f"네트워크 오류: {str(e)}"}
 
 @st.cache_data(ttl=1800)
-def fetch_kakao_category_places(lat, lng, category_code, size=5):
+def fetch_kakao_category_places(lat, lng, category_code, size=4):
     """카카오 로컬 REST API: 반경 내 음식점(FD6) 또는 카페(CE7) 실시간 검색"""
     if not KAKAO_MAP_API_KEY:
         return []
@@ -440,7 +449,7 @@ def fetch_kakao_category_places(lat, lng, category_code, size=5):
         "size": size
     }
     try:
-        res = requests.get(url, headers=headers, params=params, timeout=5)
+        res = requests.get(url, headers=headers, params=params, timeout=4)
         if res.status_code == 200:
             docs = res.json().get("documents", [])
             places = []
@@ -496,7 +505,7 @@ def fetch_exchange_rate(target_currency):
     return fallback.get(target_currency, 1300.0)
 
 # -------------------------------------------------------------
-# 6. 대시보드 상단 (지도 및 레스토랑/카페 검색 & 다중 핀 렌더링)
+# 6. 대시보드 상단 (지도 및 레스토랑/카페 다중 핀 렌더링)
 # -------------------------------------------------------------
 st.title(f"✈️ {selected_city_name} 여행 대시보드")
 
@@ -509,36 +518,34 @@ if city_info.get("is_korea"):
         lat = kakao_result["lat"]
         lng = kakao_result["lng"]
 
-# --- [신규 기능] 레스토랑 & 카페 실시간 필터 및 검색 ---
+# --- [문제 2 해결] 레스토랑 & 카페 실시간 필터 및 완벽 Fallback 로직 ---
 st.markdown("##### 📍 여행지 위치 & 🍽️ 맛집/카페 지도 탐색")
 
-place_col1, place_col2 = st.columns([1, 2])
-with place_col1:
-    place_filter = st.radio(
-        "지도에 표시할 장소 선택:",
-        ["🏙️ 도시 중심만 보기", "🍽️ 레스토랑 추천 보기", "☕ 감성 카페 추천 보기", "✨ 전체 모아보기"],
-        horizontal=False
-    )
+place_filter = st.radio(
+    "지도에 표시할 장소 선택:",
+    ["🏙️ 도시 중심만 보기", "🍽️ 레스토랑 추천 보기", "☕ 감성 카페 추천 보기", "✨ 전체 모아보기"],
+    horizontal=True
+)
 
-# 도시 매칭 키 찾기
+# 도시 매칭 키 찾기 (서울, 도쿄, 베이징, 파리 등)
 matched_key = None
 for k in CITY_PLACES_DB.keys():
     if k in selected_city_name:
         matched_key = k
         break
 
-# 선택한 필터에 따른 맛집/카페 데이터 수집
 selected_places = []
 
-if city_info.get("is_korea"):
-    # 한국 도시: 카카오 REST API로 실시간 인기 맛집/카페 호출
-    if "레스토랑" in place_filter or "전체" in place_filter:
-        selected_places.extend(fetch_kakao_category_places(lat, lng, "FD6", size=4))
-    if "카페" in place_filter or "전체" in place_filter:
-        selected_places.extend(fetch_kakao_category_places(lat, lng, "CE7", size=4))
-else:
-    # 해외 도시: 검증된 도시별 대표 레스토랑 & 카페 DB에서 추출
-    if matched_key and matched_key in CITY_PLACES_DB:
+if place_filter != "🏙️ 도시 중심만 보기":
+    # 1. 한국 도시인 경우 먼저 카카오 REST API 시도
+    if city_info.get("is_korea"):
+        if "레스토랑" in place_filter or "전체" in place_filter:
+            selected_places.extend(fetch_kakao_category_places(lat, lng, "FD6", size=3))
+        if "카페" in place_filter or "전체" in place_filter:
+            selected_places.extend(fetch_kakao_category_places(lat, lng, "CE7", size=3))
+    
+    # 2. 카카오 API 응답이 없거나(키 누락/오류 등), 해외 도시인 경우 CITY_PLACES_DB에서 보충
+    if not selected_places and matched_key and matched_key in CITY_PLACES_DB:
         db_items = CITY_PLACES_DB[matched_key]
         if "레스토랑" in place_filter:
             selected_places = [p for p in db_items if p["category"] == "레스토랑"]
@@ -548,13 +555,9 @@ else:
             selected_places = db_items
 
 # 지도 데이터프레임 구성 (도시 중심점 + 검색된 맛집/카페 좌표들)
-map_rows = [{"lat": lat, "lon": lng, "name": f"📍 {selected_city_name} 중심"}]
+map_rows = [{"lat": lat, "lon": lng}]
 for p in selected_places:
-    map_rows.append({
-        "lat": p["lat"],
-        "lon": p["lng"],
-        "name": f"{'🍽️' if p['category'] == '레스토랑' else '☕'} {p['name']}"
-    })
+    map_rows.append({"lat": p["lat"], "lon": p["lng"]})
 
 map_df = pd.DataFrame(map_rows)
 st.map(map_df, zoom=12)
@@ -642,7 +645,7 @@ with col_rate:
 # -------------------------------------------------------------
 # 8. 접이식 환율 계산기 및 슬라이더 (Expander)
 # -------------------------------------------------------------
-with st.expander(f"🪻 환율 계산기 & 은행 우대율 설정 ({target_curr})", expanded=True):
+with st.expander(f"환율 계산기 & 은행 우대율 설정 ({target_curr})", expanded=True):
     st.markdown("##### ⚙️ 환율 상세 옵션")
     s_col1, s_col2 = st.columns(2)
     with s_col1:
