@@ -8,7 +8,7 @@ import streamlit as st
 from dotenv import load_dotenv, find_dotenv
 
 # -------------------------------------------------------------
-# 0. 환경 변수 로드
+# 0. 로컬(VSCode) 환경 변수 로드 (.env 탐색)
 # -------------------------------------------------------------
 current_dir = Path(__file__).resolve().parent
 parent_env_path = current_dir.parent / ".env"
@@ -160,11 +160,24 @@ def get_pretendard_font_css():
 st.markdown(get_pretendard_font_css(), unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# 1. API 키 로드
+# 1. API 키 로드 (VSCode .env 우선, 배포 환경 Streamlit Secrets 차순위)
 # -------------------------------------------------------------
-EXCHANGERATE_API_KEY = os.getenv("EXCHANGERATE_API_KEY", "").strip()
-OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY", "").strip()
-KAKAO_MAP_API_KEY = os.getenv("KAKAO_MAP_API_KEY", "").strip()
+def get_secret(key_name):
+    # 1. VSCode 로컬 환경 (.env 파일) 우선 확인
+    env_val = os.getenv(key_name, "").strip()
+    if env_val:
+        return env_val
+    # 2. 배포 환경 (Streamlit Cloud Secrets) 확인
+    try:
+        if key_name in st.secrets:
+            return str(st.secrets[key_name]).strip()
+    except Exception:
+        pass
+    return ""
+
+EXCHANGERATE_API_KEY = get_secret("EXCHANGERATE_API_KEY")
+OPENWEATHER_API_KEY = get_secret("OPENWEATHER_API_KEY")
+KAKAO_MAP_API_KEY = get_secret("KAKAO_MAP_API_KEY")
 
 # -------------------------------------------------------------
 # 2. 해외 대표 도시 사전
@@ -204,7 +217,7 @@ OVERSEAS_PLACES_DB = {
 }
 
 # -------------------------------------------------------------
-# 3. 국내 위치 검색 함수
+# 3. 국내 위치 검색 함수 (카카오 API)
 # -------------------------------------------------------------
 def search_korea_location(query_text):
     q = query_text.strip()
@@ -233,7 +246,7 @@ def search_korea_location(query_text):
     except Exception:
         pass
 
-    # 2차 주소 검색
+    # 2차 주소 검색 (지번, 행정동 보완)
     if not results:
         try:
             url_addr = "https://dapi.kakao.com/v2/local/search/address.json"
@@ -307,7 +320,7 @@ def search_overseas_places(query_text):
     return matches
 
 # -------------------------------------------------------------
-# 4. 사이드바 (국내/해외 모드)
+# 4. 사이드바 구성
 # -------------------------------------------------------------
 st.sidebar.markdown("## 🧭 여행 모드 선택")
 travel_mode = st.sidebar.radio("범위를 선택하세요:", ["🇰🇷 국내 여행", "✈️ 해외 여행"], horizontal=True)
@@ -318,8 +331,8 @@ if travel_mode == "🇰🇷 국내 여행":
     st.sidebar.markdown("### 🔍 국내 동네/지역 검색")
     korea_query = st.sidebar.text_input(
         "동네명 또는 도로명을 입력하세요:",
-        value="울산 무거동",
-        help="예: 무거동, 연남동, 성수동, 해운대, 서면, 판교 등"
+        value="서울",
+        help="예: 울산 무거동, 연남동, 성수동, 해운대, 서면, 판교 등"
     ).strip()
 
     suggestions = search_korea_location(korea_query)
@@ -330,7 +343,7 @@ if travel_mode == "🇰🇷 국내 여행":
         chosen_label = st.sidebar.radio("지역 목록:", labels, index=0, label_visibility="collapsed")
         place_info = next(s for s in suggestions if s["label"] == chosen_label)
     else:
-        st.sidebar.warning("카카오 검색 결과가 없어 서울로 기본 설정됩니다.")
+        st.sidebar.warning("검색 결과가 없어 서울로 기본 설정됩니다.")
         place_info = {
             "label": "🇰🇷 서울특별시청", "display_name": "서울", "lat": 37.5665, "lng": 126.9780,
             "is_korea": True, "currency": "KRW"
@@ -348,22 +361,18 @@ else:
     place_info["currency"] = final_curr if final_curr else place_info["currency"]
 
 # -------------------------------------------------------------
-# 5. [단순화] 현재 좌표 주변 음식점 3개, 카페 3개 직접 수신
+# 5. 좌표 기반 주변 음식점/카페 반경 수신 함수
 # -------------------------------------------------------------
 @st.cache_data(ttl=1800)
 def fetch_direct_nearby_places(lat, lng, category_type="restaurant", size=3):
-    """
-    랭킹/인기도 옵션 제거 -> 좌표(lat, lng) 반경 내 장소를 기본 거리순으로 3개 직접 가져옴
-    """
     if not KAKAO_MAP_API_KEY:
-        return [], "KAKAO_MAP_API_KEY가 설정되지 않았습니다."
+        return [], "KAKAO_MAP_API_KEY가 로드되지 않았습니다. .env 파일의 키 설정을 확인하세요."
     
     cat_code = "FD6" if category_type == "restaurant" else "CE7"
     label_text = "레스토랑" if category_type == "restaurant" else "카페"
     url = "https://dapi.kakao.com/v2/local/search/category.json"
     headers = {"Authorization": f"KakaoAK {KAKAO_MAP_API_KEY}"}
     
-    # 2km, 5km, 15km 순으로 반경을 넓혀가며 탐색
     for r in [2000, 5000, 15000]:
         params = {
             "category_group_code": cat_code,
@@ -389,7 +398,7 @@ def fetch_direct_nearby_places(lat, lng, category_type="restaurant", size=3):
                         })
                     return places, None
             elif res.status_code in [401, 403]:
-                return [], f"카카오 API 키 인증 오류 (Status Code: {res.status_code}). .env 파일의 KAKAO_MAP_API_KEY를 확인하세요."
+                return [], f"카카오 API 키 인증 오류 (Status Code: {res.status_code})."
         except Exception as e:
             return [], f"카카오 API 통신 오류: {str(e)}"
             
@@ -442,21 +451,18 @@ selected_places = []
 api_error_msg = None
 
 if place_info.get("is_korea"):
-    # 레스토랑 3개 수신
     rests, err1 = fetch_direct_nearby_places(lat, lng, "restaurant", size=3)
     if rests:
         selected_places.extend(rests)
     elif err1:
         api_error_msg = err1
 
-    # 카페 3개 수신
     cafes, err2 = fetch_direct_nearby_places(lat, lng, "cafe", size=3)
     if cafes:
         selected_places.extend(cafes)
     elif err2 and not api_error_msg:
         api_error_msg = err2
 else:
-    # 해외 도시
     matched_overseas = None
     for k in OVERSEAS_PLACES_DB.keys():
         if k in clean_title or k in place_info["label"]:
@@ -476,7 +482,6 @@ st.map(pd.DataFrame(map_rows), zoom=14 if place_info.get("is_korea") else 12)
 if selected_places:
     st.markdown(f"**🌟 {clean_title} 주변 추천 장소 ({len(selected_places)}곳):**")
     
-    # 레스토랑 섹션
     res_list = [p for p in selected_places if p["category"] == "레스토랑"]
     if res_list:
         st.markdown("##### 🍽️ 주변 레스토랑 (3곳)")
@@ -490,7 +495,6 @@ if selected_places:
                 else:
                     st.markdown(f"[🔗 구글 지도 길찾기](https://www.google.com/maps/search/{pl['name']})")
 
-    # 카페 섹션
     cafe_list = [p for p in selected_places if p["category"] == "카페"]
     if cafe_list:
         st.markdown("##### ☕ 주변 카페 (3곳)")
