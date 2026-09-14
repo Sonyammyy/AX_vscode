@@ -633,3 +633,4 @@ with b_col2:
     st.link_button("🏨 아고다 숙소 최저가 검색", f"https://www.agoda.com/search?city={clean_title}")
 with b_col3:
     st.link_button("✈️ 트립어드바이저 여행 후기", f"https://www.tripadvisor.com/Search?q={clean_title}")
+# 제발 돼라.
