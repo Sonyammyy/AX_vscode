@@ -8,13 +8,16 @@ import streamlit as st
 from dotenv import load_dotenv, find_dotenv
 
 # -------------------------------------------------------------
-# 0. 로컬(VSCode) 환경 변수 로드 (.env 탐색)
+# 0. 로컬(VSCode) .env 다중 경로 자동 탐색 및 로드
 # -------------------------------------------------------------
 current_dir = Path(__file__).resolve().parent
-parent_env_path = current_dir.parent / ".env"
+search_env_dirs = [current_dir, current_dir.parent, Path.cwd()]
 
-if parent_env_path.exists():
-    load_dotenv(dotenv_path=parent_env_path)
+for p in search_env_dirs:
+    env_file = p / ".env"
+    if env_file.exists():
+        load_dotenv(dotenv_path=env_file)
+        break
 else:
     load_dotenv(find_dotenv())
 
@@ -160,24 +163,39 @@ def get_pretendard_font_css():
 st.markdown(get_pretendard_font_css(), unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# 1. API 키 로드 (VSCode .env 우선, 배포 환경 Streamlit Secrets 차순위)
+# 1. API 키 로드 (다양한 환경변수 이름 자동 지원)
 # -------------------------------------------------------------
-def get_secret(key_name):
-    # 1. VSCode 로컬 환경 (.env 파일) 우선 확인
-    env_val = os.getenv(key_name, "").strip()
-    if env_val:
-        return env_val
-    # 2. 배포 환경 (Streamlit Cloud Secrets) 확인
-    try:
-        if key_name in st.secrets:
-            return str(st.secrets[key_name]).strip()
-    except Exception:
-        pass
+def get_secret(possible_names):
+    # 1. 로컬 환경 변수 (.env) 확인
+    for name in possible_names:
+        val = os.getenv(name, "").strip()
+        if val:
+            return val
+    # 2. 배포 환경 (Streamlit Secrets) 확인
+    for name in possible_names:
+        try:
+            if name in st.secrets:
+                val = str(st.secrets[name]).strip()
+                if val:
+                    return val
+        except Exception:
+            pass
     return ""
 
-EXCHANGERATE_API_KEY = get_secret("EXCHANGERATE_API_KEY")
-OPENWEATHER_API_KEY = get_secret("OPENWEATHER_API_KEY")
-KAKAO_MAP_API_KEY = get_secret("KAKAO_MAP_API_KEY")
+EXCHANGERATE_API_KEY = get_secret(["EXCHANGERATE_API_KEY", "EXCHANGE_API_KEY"])
+OPENWEATHER_API_KEY = get_secret(["OPENWEATHER_API_KEY", "OPEN_WEATHER_API_KEY", "WEATHER_API_KEY"])
+KAKAO_MAP_API_KEY = get_secret(["KAKAO_MAP_API_KEY", "KAKAO_REST_API_KEY", "KAKAO_API_KEY", "KAKAO_KEY"])
+
+# 키가 비어있을 때 사이드바에 비상 직접 입력창 생성
+if not KAKAO_MAP_API_KEY:
+    st.sidebar.error("⚠️ 카카오 API 키가 자동으로 로드되지 않았습니다.")
+    manual_kakao = st.sidebar.text_input(
+        "🔑 카카오 REST API 키 직접 입력:",
+        type="password",
+        help="발급받으신 카카오 REST API 키를 여기에 붙여넣으시면 즉시 동작합니다."
+    ).strip()
+    if manual_kakao:
+        KAKAO_MAP_API_KEY = manual_kakao
 
 # -------------------------------------------------------------
 # 2. 해외 대표 도시 사전
@@ -217,7 +235,7 @@ OVERSEAS_PLACES_DB = {
 }
 
 # -------------------------------------------------------------
-# 3. 국내 위치 검색 함수 (카카오 API)
+# 3. 국내 카카오 위치 탐색 (키워드 + 주소 2단계)
 # -------------------------------------------------------------
 def search_korea_location(query_text):
     q = query_text.strip()
@@ -331,8 +349,8 @@ if travel_mode == "🇰🇷 국내 여행":
     st.sidebar.markdown("### 🔍 국내 동네/지역 검색")
     korea_query = st.sidebar.text_input(
         "동네명 또는 도로명을 입력하세요:",
-        value="서울",
-        help="예: 울산 무거동, 연남동, 성수동, 해운대, 서면, 판교 등"
+        value="울산 무거동",
+        help="예: 무거동, 연남동, 성수동, 해운대, 서면, 판교 등"
     ).strip()
 
     suggestions = search_korea_location(korea_query)
@@ -343,7 +361,10 @@ if travel_mode == "🇰🇷 국내 여행":
         chosen_label = st.sidebar.radio("지역 목록:", labels, index=0, label_visibility="collapsed")
         place_info = next(s for s in suggestions if s["label"] == chosen_label)
     else:
-        st.sidebar.warning("검색 결과가 없어 서울로 기본 설정됩니다.")
+        if not KAKAO_MAP_API_KEY:
+            st.sidebar.error("카카오 API 키가 등록되지 않아 검색할 수 없습니다.")
+        else:
+            st.sidebar.warning("카카오 검색 결과가 없어 서울로 기본 설정됩니다.")
         place_info = {
             "label": "🇰🇷 서울특별시청", "display_name": "서울", "lat": 37.5665, "lng": 126.9780,
             "is_korea": True, "currency": "KRW"
@@ -361,17 +382,18 @@ else:
     place_info["currency"] = final_curr if final_curr else place_info["currency"]
 
 # -------------------------------------------------------------
-# 5. 좌표 기반 주변 음식점/카페 반경 수신 함수
+# 5. 좌표 기반 음식점 3개, 카페 3개 수신 함수
 # -------------------------------------------------------------
 @st.cache_data(ttl=1800)
-def fetch_direct_nearby_places(lat, lng, category_type="restaurant", size=3):
-    if not KAKAO_MAP_API_KEY:
-        return [], "KAKAO_MAP_API_KEY가 로드되지 않았습니다. .env 파일의 키 설정을 확인하세요."
+def fetch_direct_nearby_places(lat, lng, category_type="restaurant", size=3, api_key=""):
+    active_key = api_key if api_key else KAKAO_MAP_API_KEY
+    if not active_key:
+        return [], "KAKAO_MAP_API_KEY가 로드되지 않았습니다."
     
     cat_code = "FD6" if category_type == "restaurant" else "CE7"
     label_text = "레스토랑" if category_type == "restaurant" else "카페"
     url = "https://dapi.kakao.com/v2/local/search/category.json"
-    headers = {"Authorization": f"KakaoAK {KAKAO_MAP_API_KEY}"}
+    headers = {"Authorization": f"KakaoAK {active_key}"}
     
     for r in [2000, 5000, 15000]:
         params = {
@@ -398,7 +420,7 @@ def fetch_direct_nearby_places(lat, lng, category_type="restaurant", size=3):
                         })
                     return places, None
             elif res.status_code in [401, 403]:
-                return [], f"카카오 API 키 인증 오류 (Status Code: {res.status_code})."
+                return [], f"카카오 API 키 인증 오류 (Status Code: {res.status_code})"
         except Exception as e:
             return [], f"카카오 API 통신 오류: {str(e)}"
             
@@ -451,13 +473,13 @@ selected_places = []
 api_error_msg = None
 
 if place_info.get("is_korea"):
-    rests, err1 = fetch_direct_nearby_places(lat, lng, "restaurant", size=3)
+    rests, err1 = fetch_direct_nearby_places(lat, lng, "restaurant", size=3, api_key=KAKAO_MAP_API_KEY)
     if rests:
         selected_places.extend(rests)
     elif err1:
         api_error_msg = err1
 
-    cafes, err2 = fetch_direct_nearby_places(lat, lng, "cafe", size=3)
+    cafes, err2 = fetch_direct_nearby_places(lat, lng, "cafe", size=3, api_key=KAKAO_MAP_API_KEY)
     if cafes:
         selected_places.extend(cafes)
     elif err2 and not api_error_msg:
