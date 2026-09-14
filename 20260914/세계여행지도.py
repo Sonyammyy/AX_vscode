@@ -8,7 +8,7 @@ import streamlit as st
 from dotenv import load_dotenv
 
 # -------------------------------------------------------------
-# 0. 상위 폴더의 .env 파일 정확한 경로 지정 및 로드
+# 0. 상위 폴더의 .env 파일 로드
 # -------------------------------------------------------------
 current_file_path = Path(__file__).resolve()
 parent_env_path = current_file_path.parent.parent / ".env"
@@ -16,7 +16,6 @@ parent_env_path = current_file_path.parent.parent / ".env"
 if parent_env_path.exists():
     load_dotenv(dotenv_path=parent_env_path, override=True)
 else:
-    # 혹시 같은 폴더에 있거나 다른 상위 위치에 있을 때 대비
     load_dotenv(dotenv_path=current_file_path.parent / ".env", override=True)
 
 st.set_page_config(page_title="세계 여행 대시보드", layout="wide", page_icon="✈️")
@@ -161,21 +160,21 @@ def get_pretendard_font_css():
 st.markdown(get_pretendard_font_css(), unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# 1. API 키 로드 (따옴표 및 공백 말끔히 제거)
+# 1. API 키 로드 (요청하신 KAKAO_REST_API_KEY 로 적용)
 # -------------------------------------------------------------
 def clean_key(val):
     if not val:
         return ""
-    # 따옴표나 공백이 섞여 들어간 경우 제거
     return str(val).strip().strip("'").strip('"')
 
-KAKAO_MAP_API_KEY = clean_key(os.getenv("KAKAO_MAP_API_KEY"))
+# .env 및 OS 환경 변수에서 KAKAO_REST_API_KEY 로드
+KAKAO_REST_API_KEY = clean_key(os.getenv("KAKAO_REST_API_KEY"))
 OPENWEATHER_API_KEY = clean_key(os.getenv("OPENWEATHER_API_KEY"))
 EXCHANGERATE_API_KEY = clean_key(os.getenv("EXCHANGERATE_API_KEY"))
 
-# 배포 환경인 경우 st.secrets 확인
-if not KAKAO_MAP_API_KEY and hasattr(st, "secrets"):
-    KAKAO_MAP_API_KEY = clean_key(st.secrets.get("KAKAO_MAP_API_KEY"))
+# 배포 환경 (st.secrets) 확인
+if not KAKAO_REST_API_KEY and hasattr(st, "secrets"):
+    KAKAO_REST_API_KEY = clean_key(st.secrets.get("KAKAO_REST_API_KEY"))
 if not OPENWEATHER_API_KEY and hasattr(st, "secrets"):
     OPENWEATHER_API_KEY = clean_key(st.secrets.get("OPENWEATHER_API_KEY"))
 if not EXCHANGERATE_API_KEY and hasattr(st, "secrets"):
@@ -223,10 +222,10 @@ OVERSEAS_PLACES_DB = {
 # -------------------------------------------------------------
 def search_korea_location(query_text):
     q = query_text.strip()
-    if not q or not KAKAO_MAP_API_KEY:
+    if not q or not KAKAO_REST_API_KEY:
         return []
     
-    headers = {"Authorization": f"KakaoAK {KAKAO_MAP_API_KEY}"}
+    headers = {"Authorization": f"KakaoAK {KAKAO_REST_API_KEY}"}
     results = []
 
     # 1차 키워드 검색
@@ -333,7 +332,7 @@ if travel_mode == "🇰🇷 국내 여행":
     st.sidebar.markdown("### 🔍 국내 동네/지역 검색")
     korea_query = st.sidebar.text_input(
         "동네명 또는 도로명을 입력하세요:",
-        value="울산 무거동",
+        value="서울",
         help="예: 무거동, 연남동, 성수동, 해운대, 서면, 판교 등"
     ).strip()
 
@@ -345,8 +344,8 @@ if travel_mode == "🇰🇷 국내 여행":
         chosen_label = st.sidebar.radio("지역 목록:", labels, index=0, label_visibility="collapsed")
         place_info = next(s for s in suggestions if s["label"] == chosen_label)
     else:
-        if not KAKAO_MAP_API_KEY:
-            st.sidebar.error("⚠️ 상위 폴더 .env 파일에서 KAKAO_MAP_API_KEY를 로드하지 못했습니다.")
+        if not KAKAO_REST_API_KEY:
+            st.sidebar.error("⚠️ 상위 폴더 .env 파일에서 KAKAO_REST_API_KEY를 로드하지 못했습니다.")
         else:
             st.sidebar.warning("검색된 장소가 없어 서울특별시청으로 기본 설정됩니다.")
         place_info = {
@@ -370,13 +369,13 @@ else:
 # -------------------------------------------------------------
 @st.cache_data(ttl=1800)
 def fetch_direct_nearby_places(lat, lng, category_type="restaurant", size=3):
-    if not KAKAO_MAP_API_KEY:
-        return [], "KAKAO_MAP_API_KEY가 로드되지 않았습니다."
+    if not KAKAO_REST_API_KEY:
+        return [], "KAKAO_REST_API_KEY가 로드되지 않았습니다."
     
     cat_code = "FD6" if category_type == "restaurant" else "CE7"
     label_text = "레스토랑" if category_type == "restaurant" else "카페"
     url = "https://dapi.kakao.com/v2/local/search/category.json"
-    headers = {"Authorization": f"KakaoAK {KAKAO_MAP_API_KEY}"}
+    headers = {"Authorization": f"KakaoAK {KAKAO_REST_API_KEY}"}
     
     for r in [2000, 5000, 15000]:
         params = {
@@ -568,7 +567,7 @@ with col_rate:
         st.info("선택하신 지역은 대한민국(KRW)으로 환율이 1:1로 고정됩니다.")
         m1, m2, m3 = st.columns(3)
         m1.metric("매매기준율", "1.00원")
-        m1.metric("사실 때", "1.00원")
+        m2.metric("사실 때", "1.00원")
         m3.metric("파실 때", "1.00원")
     else:
         fmt = "{:,.4f}원" if base_rate < 1.0 else "{:,.2f}원"
