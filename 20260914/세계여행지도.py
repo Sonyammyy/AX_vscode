@@ -5,18 +5,26 @@ from pathlib import Path
 import requests
 import pandas as pd
 import streamlit as st
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
 # -------------------------------------------------------------
-# 0. 상위 폴더의 .env 파일 로드
+# 0. 프로젝트 루트(AX_vscode)의 .env 파일 정확한 로드
 # -------------------------------------------------------------
-current_file_path = Path(__file__).resolve()
-parent_env_path = current_file_path.parent.parent / ".env"
+current_file = Path(__file__).resolve()
 
-if parent_env_path.exists():
-    load_dotenv(dotenv_path=parent_env_path, override=True)
+possible_paths = [
+    current_file.parent.parent / ".env",  # AX_vscode/.env
+    current_file.parent / ".env",         # 현재 실행 폴더/.env
+    Path.cwd() / ".env",                  # 작업 디렉토리/.env
+    Path.cwd().parent / ".env"
+]
+
+for p in possible_paths:
+    if p.exists():
+        load_dotenv(dotenv_path=p, override=True)
+        break
 else:
-    load_dotenv(dotenv_path=current_file_path.parent / ".env", override=True)
+    load_dotenv(find_dotenv(), override=True)
 
 st.set_page_config(page_title="세계 여행 대시보드", layout="wide", page_icon="✈️")
 
@@ -27,7 +35,7 @@ def get_pretendard_font_css():
     font_extensions = [".woff2", ".woff", ".ttf", ".otf"]
     font_file = None
     
-    search_paths = [current_file_path.parent, current_file_path.parent / "fonts", current_file_path.parent / "static"]
+    search_paths = [current_file.parent, current_file.parent / "fonts", current_file.parent / "static"]
     for folder in search_paths:
         if folder.exists():
             for f in folder.iterdir():
@@ -160,25 +168,26 @@ def get_pretendard_font_css():
 st.markdown(get_pretendard_font_css(), unsafe_allow_html=True)
 
 # -------------------------------------------------------------
-# 1. API 키 로드 (요청하신 KAKAO_REST_API_KEY 로 적용)
+# 1. API 키 로드
 # -------------------------------------------------------------
 def clean_key(val):
     if not val:
         return ""
     return str(val).strip().strip("'").strip('"')
 
-# .env 및 OS 환경 변수에서 KAKAO_REST_API_KEY 로드
 KAKAO_REST_API_KEY = clean_key(os.getenv("KAKAO_REST_API_KEY"))
 OPENWEATHER_API_KEY = clean_key(os.getenv("OPENWEATHER_API_KEY"))
 EXCHANGERATE_API_KEY = clean_key(os.getenv("EXCHANGERATE_API_KEY"))
 
-# 배포 환경 (st.secrets) 확인
-if not KAKAO_REST_API_KEY and hasattr(st, "secrets"):
-    KAKAO_REST_API_KEY = clean_key(st.secrets.get("KAKAO_REST_API_KEY"))
-if not OPENWEATHER_API_KEY and hasattr(st, "secrets"):
-    OPENWEATHER_API_KEY = clean_key(st.secrets.get("OPENWEATHER_API_KEY"))
-if not EXCHANGERATE_API_KEY and hasattr(st, "secrets"):
-    EXCHANGERATE_API_KEY = clean_key(st.secrets.get("EXCHANGERATE_API_KEY"))
+try:
+    if not KAKAO_REST_API_KEY and hasattr(st, "secrets") and "KAKAO_REST_API_KEY" in st.secrets:
+        KAKAO_REST_API_KEY = clean_key(st.secrets["KAKAO_REST_API_KEY"])
+    if not OPENWEATHER_API_KEY and hasattr(st, "secrets") and "OPENWEATHER_API_KEY" in st.secrets:
+        OPENWEATHER_API_KEY = clean_key(st.secrets["OPENWEATHER_API_KEY"])
+    if not EXCHANGERATE_API_KEY and hasattr(st, "secrets") and "EXCHANGERATE_API_KEY" in st.secrets:
+        EXCHANGERATE_API_KEY = clean_key(st.secrets["EXCHANGERATE_API_KEY"])
+except Exception:
+    pass
 
 # -------------------------------------------------------------
 # 2. 해외 대표 도시 사전
@@ -228,7 +237,6 @@ def search_korea_location(query_text):
     headers = {"Authorization": f"KakaoAK {KAKAO_REST_API_KEY}"}
     results = []
 
-    # 1차 키워드 검색
     try:
         url_kw = "https://dapi.kakao.com/v2/local/search/keyword.json"
         res_kw = requests.get(url_kw, headers=headers, params={"query": q, "size": 5}, timeout=4)
@@ -247,7 +255,6 @@ def search_korea_location(query_text):
     except Exception:
         pass
 
-    # 2차 주소 검색 (지번, 행정동 보완)
     if not results:
         try:
             url_addr = "https://dapi.kakao.com/v2/local/search/address.json"
@@ -345,7 +352,7 @@ if travel_mode == "🇰🇷 국내 여행":
         place_info = next(s for s in suggestions if s["label"] == chosen_label)
     else:
         if not KAKAO_REST_API_KEY:
-            st.sidebar.error("⚠️ 상위 폴더 .env 파일에서 KAKAO_REST_API_KEY를 로드하지 못했습니다.")
+            st.sidebar.error("⚠️ .env 파일에서 KAKAO_REST_API_KEY를 로드하지 못했습니다.")
         else:
             st.sidebar.warning("검색된 장소가 없어 서울특별시청으로 기본 설정됩니다.")
         place_info = {
