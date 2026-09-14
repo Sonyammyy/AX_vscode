@@ -1,0 +1,860 @@
+import os
+import base64
+from pathlib import Path
+import requests
+import pandas as pd
+import streamlit as st
+from dotenv import load_dotenv, find_dotenv
+
+# -------------------------------------------------------------
+# 0. 상위 폴더의 .env 환경 변수 자동 탐색 및 로드
+# -------------------------------------------------------------
+current_dir = Path(__file__).resolve().parent
+parent_env_path = current_dir.parent / ".env"
+
+if parent_env_path.exists():
+    load_dotenv(dotenv_path=parent_env_path)
+else:
+    load_dotenv(find_dotenv())
+
+# page_config 제목에서 '라벤더' 제거
+st.set_page_config(page_title="세계 여행 대시보드", layout="wide", page_icon="✈️")
+
+# -------------------------------------------------------------
+# 0-1. 프리텐다드 레귤러 폰트 로컬 연동 & 라벤더 감성 CSS
+# -------------------------------------------------------------
+def get_pretendard_font_css():
+    """프로젝트 경로 내 Pretendard Regular 폰트 파일을 탐색하여 Base64로 주입 (없을 시 CDN Fallback)"""
+    font_extensions = [".woff2", ".woff", ".ttf", ".otf"]
+    font_file = None
+    
+    # 동일 폴더 및 하위 fonts, static 폴더 순회
+    search_paths = [current_dir, current_dir / "fonts", current_dir / "static"]
+    for folder in search_paths:
+        if folder.exists():
+            for f in folder.iterdir():
+                if f.is_file() and any(f.name.lower().endswith(ext) for ext in font_extensions):
+                    if "pretendard" in f.name.lower():
+                        font_file = f
+                        break
+            if font_file:
+                break
+
+    if font_file:
+        ext = font_file.suffix.lower()
+        fmt_map = {".woff2": "woff2", ".woff": "woff", ".ttf": "truetype", ".otf": "opentype"}
+        fmt = fmt_map.get(ext, "woff2")
+        with open(font_file, "rb") as bf:
+            b64_font = base64.b64encode(bf.read()).decode()
+        font_face_rule = f"""
+        @font-face {{
+            font-family: 'Pretendard-Regular';
+            src: url(data:font/{fmt};charset=utf-8;base64,{b64_font}) format('{fmt}');
+            font-weight: 400;
+            font-style: normal;
+            font-display: swap;
+        }}
+        """
+    else:
+        # 폰트 파일이 아직 경로에 없는 경우를 위한 웹폰트 fallback
+        font_face_rule = """
+        @import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css");
+        """
+
+    return f"""
+    <style>
+        {font_face_rule}
+
+        /* 프리텐다드 레귤러 전역 적용 */
+        html, body, [class*="css"], .stMarkdown, .stText, p, span, h1, h2, h3, h4, h5, h6, input, button, select, textarea, div {{
+            font-family: 'Pretendard-Regular', 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif !important;
+        }}
+
+        /* 은은한 파스텔 라벤더 배경 */
+        .stApp {{
+            background: linear-gradient(135deg, #fbfaff 0%, #f4effa 50%, #eee8f8 100%);
+            color: #2D2538;
+        }}
+        
+        /* 사이드바 테두리 및 배경 */
+        [data-testid="stSidebar"] {{
+            background: linear-gradient(180deg, #f7f3fd 0%, #ede5f8 100%);
+            border-right: 1px solid #dfd4f2;
+        }}
+        
+        /* 헤더 포인트 컬러 */
+        h1, h2, h3, h4, h5, h6 {{
+            color: #4C2882 !important;
+            font-weight: 700;
+        }}
+        
+        /* 메트릭 카드 */
+        [data-testid="stMetric"] {{
+            background: #ffffff;
+            padding: 14px 18px;
+            border-radius: 14px;
+            border: 1px solid #e2d7f5;
+            box-shadow: 0 4px 14px rgba(139, 92, 246, 0.08);
+        }}
+        [data-testid="stMetricLabel"] {{
+            color: #6D4C94 !important;
+            font-weight: 600;
+        }}
+        [data-testid="stMetricValue"] {{
+            color: #4C2882 !important;
+            font-size: 1.45rem !important;
+        }}
+
+        /* 탭 버튼 스타일 */
+        .stTabs [data-baseweb="tab-list"] {{
+            gap: 8px;
+            background-color: #ede5f7;
+            padding: 6px;
+            border-radius: 12px;
+        }}
+        .stTabs [data-baseweb="tab"] {{
+            border-radius: 8px;
+            padding: 8px 18px;
+            color: #5B407E;
+            font-weight: 600;
+            background-color: transparent;
+            border: none;
+        }}
+        .stTabs [aria-selected="true"] {{
+            background-color: #8B5CF6 !important;
+            color: #ffffff !important;
+        }}
+        
+        /* Expander */
+        .streamlit-expanderHeader {{
+            background-color: #f3ecfb !important;
+            border-radius: 10px !important;
+            color: #4C2882 !important;
+            font-weight: 600 !important;
+        }}
+        
+        /* 슬라이더 */
+        div[data-baseweb="slider"] div {{
+            color: #7C3AED;
+        }}
+
+        /* 링크 버튼 */
+        div.stLinkButton > a {{
+            background-color: #EDE9FE !important;
+            color: #5B21B6 !important;
+            border: 1px solid #DDD6FE !important;
+            border-radius: 10px !important;
+            font-weight: 600 !important;
+            transition: all 0.2s ease-in-out;
+        }}
+        div.stLinkButton > a:hover {{
+            background-color: #8B5CF6 !important;
+            color: #ffffff !important;
+            border-color: #7C3AED !important;
+            box-shadow: 0 4px 12px rgba(124, 58, 237, 0.25);
+        }}
+        
+        img {{
+            border-radius: 12px;
+        }}
+    </style>
+    """
+
+st.markdown(get_pretendard_font_css(), unsafe_allow_html=True)
+
+# -------------------------------------------------------------
+# 1. API 키 로드
+# -------------------------------------------------------------
+EXCHANGERATE_API_KEY = os.getenv("EXCHANGERATE_API_KEY", "").strip()
+OPENWEATHER_API_KEY = os.getenv("OPENWEATHER_API_KEY", "").strip()
+KAKAO_MAP_API_KEY = os.getenv("KAKAO_MAP_API_KEY", "").strip()
+
+# -------------------------------------------------------------
+# 2. 전 세계 도시 검색 데이터베이스 (한글/영문 매핑)
+# -------------------------------------------------------------
+GLOBAL_CITY_DB = [
+    # 대한민국
+    {"ko": "서울", "en": "Seoul", "country": "KR", "currency": "KRW", "lat": 37.5665, "lng": 126.9780, "is_korea": True},
+    {"ko": "부산", "en": "Busan", "country": "KR", "currency": "KRW", "lat": 35.1796, "lng": 129.0756, "is_korea": True},
+    {"ko": "제주", "en": "Jeju", "country": "KR", "currency": "KRW", "lat": 33.4996, "lng": 126.5312, "is_korea": True},
+
+    # 중국
+    {"ko": "베이징", "en": "Beijing", "country": "CN", "currency": "CNY", "lat": 39.9042, "lng": 116.4074},
+    {"ko": "상하이", "en": "Shanghai", "country": "CN", "currency": "CNY", "lat": 31.2304, "lng": 121.4737},
+    {"ko": "청도", "en": "Qingdao", "country": "CN", "currency": "CNY", "lat": 36.0671, "lng": 120.3826},
+
+    # 일본
+    {"ko": "도쿄", "en": "Tokyo", "country": "JP", "currency": "JPY", "lat": 35.6762, "lng": 139.6503},
+    {"ko": "오사카", "en": "Osaka", "country": "JP", "currency": "JPY", "lat": 34.6937, "lng": 135.5023},
+    {"ko": "후쿠오카", "en": "Fukuoka", "country": "JP", "currency": "JPY", "lat": 33.5904, "lng": 130.4017},
+    {"ko": "삿포로", "en": "Sapporo", "country": "JP", "currency": "JPY", "lat": 43.0618, "lng": 141.3545},
+    {"ko": "교토", "en": "Kyoto", "country": "JP", "currency": "JPY", "lat": 35.0116, "lng": 135.7681},
+
+    # 러시아
+    {"ko": "상트페테르부르크", "en": "Saint Petersburg", "country": "RU", "currency": "RUB", "lat": 59.9343, "lng": 30.3351},
+    {"ko": "모스크바", "en": "Moscow", "country": "RU", "currency": "RUB", "lat": 55.7558, "lng": 37.6173},
+    {"ko": "블라디보스토크", "en": "Vladivostok", "country": "RU", "currency": "RUB", "lat": 43.1155, "lng": 131.8855},
+
+    # 프랑스 및 유럽
+    {"ko": "파리", "en": "Paris", "country": "FR", "currency": "EUR", "lat": 48.8566, "lng": 2.3522},
+    {"ko": "런던", "en": "London", "country": "GB", "currency": "GBP", "lat": 51.5074, "lng": -0.1278},
+    {"ko": "로마", "en": "Rome", "country": "IT", "currency": "EUR", "lat": 41.9028, "lng": 12.4964},
+    {"ko": "바르셀로나", "en": "Barcelona", "country": "ES", "currency": "EUR", "lat": 41.3879, "lng": 2.1699},
+    {"ko": "취리히", "en": "Zurich", "country": "CH", "currency": "CHF", "lat": 47.3769, "lng": 8.5417},
+
+    # 미국
+    {"ko": "뉴욕", "en": "New York", "country": "US", "currency": "USD", "lat": 40.7128, "lng": -74.0060},
+    {"ko": "로스앤젤레스", "en": "Los Angeles", "country": "US", "currency": "USD", "lat": 34.0522, "lng": -118.2437},
+    {"ko": "샌프란시스코", "en": "San Francisco", "country": "US", "currency": "USD", "lat": 37.7749, "lng": -122.4194},
+    {"ko": "라스베이거스", "en": "Las Vegas", "country": "US", "currency": "USD", "lat": 36.1699, "lng": -115.1398},
+    {"ko": "하와이/호놀룰루", "en": "Honolulu", "country": "US", "currency": "USD", "lat": 21.3069, "lng": -157.8583},
+    {"ko": "시애틀", "en": "Seattle", "country": "US", "currency": "USD", "lat": 47.6062, "lng": -122.3321},
+    {"ko": "시카고", "en": "Chicago", "country": "US", "currency": "USD", "lat": 41.8781, "lng": -87.6298},
+
+    # 호주
+    {"ko": "시드니", "en": "Sydney", "country": "AU", "currency": "AUD", "lat": -33.8688, "lng": 151.2093},
+    {"ko": "멜버른", "en": "Melbourne", "country": "AU", "currency": "AUD", "lat": -37.8136, "lng": 144.9631},
+
+    # 동남아시아
+    {"ko": "하노이", "en": "Hanoi", "country": "VN", "currency": "VND", "lat": 21.0285, "lng": 105.8542},
+    {"ko": "다낭", "en": "Da Nang", "country": "VN", "currency": "VND", "lat": 16.0544, "lng": 108.2022},
+    {"ko": "방콕", "en": "Bangkok", "country": "TH", "currency": "THB", "lat": 13.7563, "lng": 100.5018},
+    {"ko": "타이베이", "en": "Taipei", "country": "TW", "currency": "TWD", "lat": 25.0330, "lng": 121.5654},
+    {"ko": "싱가포르", "en": "Singapore", "country": "SG", "currency": "SGD", "lat": 1.3521, "lng": 103.8198},
+]
+
+# -------------------------------------------------------------
+# 3. 실시간 추천 검색 함수
+# -------------------------------------------------------------
+def search_smart_cities(query_text):
+    q = query_text.strip().lower()
+    if not q:
+        return []
+    matches = []
+    for item in GLOBAL_CITY_DB:
+        if q in item["ko"].lower() or q in item["en"].lower():
+            label = f"✈️ {item['ko']} ({item['en']}, {item['country']})"
+            matches.append({
+                "label": label,
+                "city_query": item["en"],
+                "currency": item["currency"],
+                "lat": item["lat"],
+                "lng": item["lng"],
+                "is_korea": item.get("is_korea", False),
+                "kakao_keyword": item["ko"] if item.get("is_korea") else None
+            })
+            if len(matches) >= 6:
+                return matches
+
+    if not matches:
+        url = f"https://api.openweathermap.org/geo/1.0/direct?q={q}&limit=5&appid={OPENWEATHER_API_KEY}"
+        try:
+            res = requests.get(url, timeout=3)
+            if res.status_code == 200:
+                for item in res.json():
+                    ko_name = item.get("local_names", {}).get("ko")
+                    eng_name = item.get("name", "")
+                    country = item.get("country", "")
+                    label = f"✈️ {ko_name} ({eng_name}, {country})" if ko_name else f"✈️ {eng_name} ({country})"
+                    matches.append({
+                        "label": label,
+                        "city_query": eng_name,
+                        "currency": "USD",
+                        "lat": float(item["lat"]),
+                        "lng": float(item["lon"]),
+                        "is_korea": (country == "KR"),
+                        "kakao_keyword": eng_name if country == "KR" else None
+                    })
+        except Exception:
+            pass
+    return matches
+
+# -------------------------------------------------------------
+# 4. 사이드바 구성
+# -------------------------------------------------------------
+st.sidebar.markdown("## 🔍 여행지 검색")
+
+user_input = st.sidebar.text_input(
+    "떠나고 싶은 도시를 입력하세요:",
+    value="서울",
+    help="두 글자만 입력해도 실시간 추천됩니다. (예: 서울, 상트, 베이, 청도, 뉴욕, 파리 등)"
+).strip()
+
+suggestions = search_smart_cities(user_input)
+
+if suggestions:
+    st.sidebar.markdown("👇 **추천 여행지 (선택):**")
+    labels = [s["label"] for s in suggestions]
+    chosen_label = st.sidebar.radio("추천 목록:", labels, index=0, label_visibility="collapsed")
+    
+    city_info = next(s for s in suggestions if s["label"] == chosen_label)
+    selected_city_name = city_info["label"].replace("✈️ ", "")
+    
+    final_curr = st.sidebar.text_input("통화 단위 (자동 연동):", value=city_info["currency"]).strip().upper()
+    city_info["currency"] = final_curr if final_curr else city_info["currency"]
+else:
+    st.sidebar.warning("일치하는 도시가 없습니다.")
+    city_info = GLOBAL_CITY_DB[0]
+    selected_city_name = "서울 (Seoul, KR)"
+
+# -------------------------------------------------------------
+# 5. API 호출 함수들 (위키미디어 이미지 API 포함)
+# -------------------------------------------------------------
+@st.cache_data(ttl=86400)
+def fetch_wiki_image(query_name):
+    """위키미디어 REST API: 키 없이 명소 대표 고화질 이미지 URL 자동 추출"""
+    url = "https://en.wikipedia.org/w/api.php"
+    params = {
+        "action": "query",
+        "format": "json",
+        "prop": "pageimages",
+        "generator": "search",
+        "gsrsearch": query_name,
+        "gsrlimit": 1,
+        "pithumbsize": 600
+    }
+    headers = {"User-Agent": "TravelDashboardApp/1.0 (travel_project)"}
+    try:
+        res = requests.get(url, params=params, headers=headers, timeout=4)
+        if res.status_code == 200:
+            pages = res.json().get("query", {}).get("pages", {})
+            for _, page in pages.items():
+                if "thumbnail" in page:
+                    return page["thumbnail"]["source"]
+    except Exception:
+        pass
+    return "https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=600&auto=format&fit=crop&q=80"
+
+def fetch_kakao_place(keyword):
+    """카카오 로컬 REST API"""
+    if not KAKAO_MAP_API_KEY:
+        return {"success": False, "msg": "KAKAO_MAP_API_KEY가 비어 있습니다."}
+    url = "https://dapi.kakao.com/v2/local/search/keyword.json"
+    headers = {"Authorization": f"KakaoAK {KAKAO_MAP_API_KEY}"}
+    params = {"query": keyword, "size": 1}
+    try:
+        res = requests.get(url, headers=headers, params=params, timeout=5)
+        if res.status_code == 200:
+            docs = res.json().get("documents", [])
+            if docs:
+                return {
+                    "success": True,
+                    "lat": float(docs[0]["y"]),
+                    "lng": float(docs[0]["x"]),
+                    "place_name": docs[0].get("place_name", ""),
+                    "address": docs[0].get("address_name", ""),
+                    "place_url": docs[0].get("place_url", ""),
+                }
+            return {"success": False, "msg": f"'{keyword}' 검색 결과가 없습니다."}
+        return {"success": False, "status_code": res.status_code, "msg": res.text}
+    except Exception as e:
+        return {"success": False, "msg": f"네트워크 오류: {str(e)}"}
+
+@st.cache_data(ttl=600)
+def fetch_weather(city_query):
+    """OpenWeather API"""
+    url = f"https://api.openweathermap.org/data/2.5/weather?q={city_query}&appid={OPENWEATHER_API_KEY}&units=metric&lang=kr"
+    try:
+        res = requests.get(url, timeout=5)
+        if res.status_code == 200:
+            return res.json()
+    except Exception:
+        pass
+    return {
+        "main": {"temp": 20.0, "feels_like": 19.5, "humidity": 50},
+        "weather": [{"description": "맑음", "icon": "01d"}],
+        "wind": {"speed": 2.5},
+    }
+
+@st.cache_data(ttl=1800)
+def fetch_exchange_rate(target_currency):
+    """ExchangeRate-API"""
+    if target_currency == "KRW":
+        return 1.0
+    url = f"https://v6.exchangerate-api.com/v6/{EXCHANGERATE_API_KEY}/latest/KRW"
+    try:
+        res = requests.get(url, timeout=5)
+        data = res.json()
+        if data.get("result") == "success":
+            rate = data["conversion_rates"].get(target_currency)
+            if rate and float(rate) > 0:
+                return 1.0 / float(rate)
+    except Exception:
+        pass
+    fallback = {
+        "USD": 1335.0, "EUR": 1450.0, "JPY": 9.12, "GBP": 1715.0,
+        "CNY": 185.0, "RUB": 14.8, "AUD": 880.0, "VND": 0.054
+    }
+    return fallback.get(target_currency, 1300.0)
+
+# -------------------------------------------------------------
+# 6. 대시보드 상단 (지도 렌더링)
+# -------------------------------------------------------------
+st.title(f"✈️ {selected_city_name} 여행 대시보드")
+st.subheader("📍 여행지 위치")
+
+lat = city_info["lat"]
+lng = city_info["lng"]
+
+if city_info.get("is_korea"):
+    kakao_result = fetch_kakao_place(city_info.get("kakao_keyword", "서울특별시청"))
+    if kakao_result.get("success"):
+        lat = kakao_result["lat"]
+        lng = kakao_result["lng"]
+        st.success("💜 카카오 REST API 좌표 매핑 완료")
+        st.markdown(
+            f"**상세 장소**: {kakao_result['place_name']} ({kakao_result['address']}) | "
+            f"[카카오맵 바로가기]({kakao_result['place_url']})"
+        )
+
+st.map(pd.DataFrame({"lat": [lat], "lon": [lng]}), zoom=11)
+st.markdown("---")
+
+# -------------------------------------------------------------
+# 7. 날씨 및 환율 정보
+# -------------------------------------------------------------
+col_weather, col_rate = st.columns([1, 1])
+
+with col_weather:
+    st.subheader("🌤️ 현지 날씨")
+    weather_data = fetch_weather(city_info["city_query"])
+    temp = weather_data["main"]["temp"]
+    feels_like = weather_data["main"]["feels_like"]
+    humidity = weather_data["main"]["humidity"]
+    desc = weather_data["weather"][0]["description"]
+    icon_code = weather_data["weather"][0].get("icon", "01d")
+
+    w1, w2 = st.columns([1, 2])
+    with w1:
+        st.image(f"http://openweathermap.org/img/wn/{icon_code}@2x.png", width=85)
+    with w2:
+        st.metric(label="현재 기온", value=f"{temp:.1f} °C", delta=f"체감 {feels_like:.1f} °C")
+
+    st.write(f"- **날씨 상태:** {desc}")
+    st.write(f"- **현재 습도:** {humidity}%")
+    st.write(f"- **풍속:** {weather_data.get('wind', {}).get('speed', 0)} m/s")
+
+target_curr = city_info["currency"]
+base_rate = float(fetch_exchange_rate(target_curr))
+
+if "spread_rate" not in st.session_state:
+    st.session_state["spread_rate"] = 1.75
+if "discount_rate" not in st.session_state:
+    st.session_state["discount_rate"] = 80
+
+if target_curr == "KRW":
+    actual_spread_amount = 0.0
+    cash_buy = 1.0
+    cash_sell = 1.0
+else:
+    basic_spread = base_rate * (st.session_state["spread_rate"] / 100.0)
+    actual_spread_amount = basic_spread * (1.0 - (st.session_state["discount_rate"] / 100.0))
+    cash_buy = base_rate + actual_spread_amount
+    cash_sell = base_rate - actual_spread_amount
+
+with col_rate:
+    st.subheader(f"💜 현지 환율 ({target_curr} / KRW)")
+    if target_curr == "KRW":
+        st.info("선택하신 국가는 대한민국(KRW)으로 환율이 1:1로 고정됩니다.")
+        m1, m2, m3 = st.columns(3)
+        m1.metric("매매기준율", "1.00원")
+        m2.metric("사실 때", "1.00원")
+        m3.metric("파실 때", "1.00원")
+    else:
+        fmt = "{:,.4f}원" if base_rate < 1.0 else "{:,.2f}원"
+        m1, m2, m3 = st.columns(3)
+        m1.metric("📊 매매기준율", fmt.format(base_rate))
+        m2.metric("💵 사실 때 (우대)", fmt.format(cash_buy))
+        m3.metric("💴 파실 때 (우대)", fmt.format(cash_sell))
+
+        st.caption(
+            f"스프레드 **{st.session_state['spread_rate']}%** | "
+            f"우대율 **{st.session_state['discount_rate']}%** 적용 | "
+            f"실제 마진: 1 {target_curr}당 {fmt.format(actual_spread_amount)}"
+        )
+
+# -------------------------------------------------------------
+# 8. 접이식 환율 계산기 및 슬라이더 (Expander)
+# -------------------------------------------------------------
+with st.expander(f"🧮 환율 계산기 & 은행 우대율 설정 ({target_curr})", expanded=True):
+    st.markdown("##### ⚙️ 환율 상세 옵션")
+    s_col1, s_col2 = st.columns(2)
+    with s_col1:
+        new_spread = st.slider(
+            "스프레드율 (%)", min_value=0.5, max_value=4.0, 
+            value=float(st.session_state["spread_rate"]), step=0.05, key="slider_spread"
+        )
+        st.session_state["spread_rate"] = new_spread
+    with s_col2:
+        new_discount = st.slider(
+            "은행 우대율 (%)", min_value=0, max_value=100, 
+            value=int(st.session_state["discount_rate"]), step=5, key="slider_discount"
+        )
+        st.session_state["discount_rate"] = new_discount
+
+    if target_curr != "KRW":
+        basic_spread = base_rate * (st.session_state["spread_rate"] / 100.0)
+        actual_spread_amount = basic_spread * (1.0 - (st.session_state["discount_rate"] / 100.0))
+        cash_buy = base_rate + actual_spread_amount
+        cash_sell = base_rate - actual_spread_amount
+
+    st.markdown("---")
+    st.markdown("##### 💵 금액 환전 계산")
+
+    calc_direction = st.radio(
+        "환전 방식 선택:",
+        [
+            f"원화(KRW) ➡️ 현지 통화({target_curr}) [사실 때 환율 적용]",
+            f"현지 통화({target_curr}) ➡️ 원화(KRW) [파실 때 환율 적용]",
+        ],
+    )
+
+    is_krw_to_foreign = "원화(KRW) ➡️" in calc_direction
+    amount_input = st.number_input(
+        "환전할 금액 입력:",
+        min_value=0.0,
+        value=100000.0 if is_krw_to_foreign else 100.0,
+        step=10.0,
+    )
+
+    fmt = "{:,.4f}원" if base_rate < 1.0 else "{:,.2f}원"
+    if is_krw_to_foreign:
+        converted_result = float(amount_input / cash_buy) if cash_buy > 0 else 0.0
+        st.success(
+            f"💜 **{amount_input:,.0f} KRW** ➡️ **{converted_result:,.2f} {target_curr}** "
+            f"(적용 환율: 1 {target_curr} = {fmt.format(cash_buy)})"
+        )
+    else:
+        converted_result = float(amount_input * cash_sell)
+        st.success(
+            f"💜 **{amount_input:,.2f} {target_curr}** ➡️ **{converted_result:,.0f} KRW** "
+            f"(적용 환율: 1 {target_curr} = {fmt.format(cash_sell)})"
+        )
+
+# -------------------------------------------------------------
+# 9. 주요 도시별 심층 여행 가이드 데이터베이스
+# -------------------------------------------------------------
+TRAVEL_GUIDE_DB = {
+    "서울": {
+        "spots": [
+            {"name": "Gyeongbokgung", "kr_name": "경복궁 & 북촌한옥마을", "desc": "조선의 정궁이자 웅장한 근정전, 고즈넉한 전통 한옥 골목과 삼청동 카페 거리"},
+            {"name": "N Seoul Tower", "kr_name": "N서울타워 (남산타워)", "desc": "남산 정상에서 서울 360도 파노라마 야경과 사랑의 자물쇠를 만날 수 있는 랜드마크"},
+            {"name": "Dongdaemun Design Plaza", "kr_name": "동대문디자인플라자 (DDP)", "desc": "자하 하디드가 설계한 우주선 모양의 미래지향적 비정형 건축물과 감성 야경"}
+        ],
+        "stays": [
+            {"area": "명동 / 을지로", "type": "쇼핑 & 대중교통 환승 요충지", "desc": "외국인 및 국내 여행객 선호 1위, 지하철 2·3·4호선 접근성 최상"},
+            {"area": "홍대 / 연남동", "type": "젊음과 버스킹, 트렌디 부티크", "desc": "공항철도 직결, 개성 넘치는 편집숍과 늦은 밤까지 활기찬 문화"},
+            {"area": "강남 / 삼성동", "type": "비즈니스 & 프리미엄 럭셔리", "desc": "코엑스 몰, 봉은사, 고급 다이닝 및 쾌적한 호캉스 인프라"}
+        ],
+        "foods": [
+            {"name": "K-바비큐 (숙성 삼겹살 & 한우)", "desc": "숯불 불판에 노릇하게 구워 명이나물, 쌈장, 된장찌개와 함께 즐기는 대표 외식"},
+            {"name": "광장시장 로컬 분식 (빈대떡 & 육회)", "desc": "맷돌로 직접 간 두툼한 녹두빈대떡과 신선한 마약김밥, 참기름 육회"},
+            {"name": "한강 치맥 (치킨 + 맥주)", "desc": "여의도나 반포 한강공원 잔디밭에 돗자리를 펴고 즐기는 배달 치킨과 즉석 끓인 라면"}
+        ],
+        "tips": [
+            "한복을 대여해 착용하면 4대 궁궐과 종묘에 무료로 입장할 수 있습니다.",
+            "기후동행카드 관광객 단기권을 이용하면 지하철과 시내버스를 무제한으로 알뜰하게 탑승 가능합니다."
+        ]
+    },
+    "베이징": {
+        "spots": [
+            {"name": "Forbidden City", "kr_name": "자금성 (고궁박물원)", "desc": "명·청 24대 황제가 거처한 세계 최대 목조 궁궐"},
+            {"name": "Great Wall of China", "kr_name": "만리장성 (팔달령/모전욕)", "desc": "인류 최대의 건축물이자 유네스코 세계문화유산"},
+            {"name": "Summer Palace", "kr_name": "이화원", "desc": "서태후의 거대한 황실 정원 인공호수"}
+        ],
+        "stays": [
+            {"area": "왕푸징 (Wangfujing)", "type": "쇼핑 & 명소 접근성 최고", "desc": "자금성 도보 이동 가능 및 대형 백화점 밀집"},
+            {"area": "첸먼 / 다스란", "type": "전통 감성 사합원 호텔", "desc": "베이징 전통 가옥 양식의 부티크 숙소"},
+            {"area": "싼리툰 (Sanlitun)", "type": "트렌디 럭셔리 호텔", "desc": "세련된 바, 레스토랑이 즐비한 현대적 번화가"}
+        ],
+        "foods": [
+            {"name": "베이징 카오야 (북경오리)", "desc": "바삭한 껍질과 촉촉한 속살을 얇은 밀전병에 싸 먹는 황실 요리"},
+            {"name": "자장미엔 (베이징식 작장면)", "desc": "춘장을 볶아 오이, 콩나물과 비벼 먹는 담백한 본토 자장면"},
+            {"name": "훠궈 (전통 동냄비)", "desc": "구리 냄비에 숯불을 피워 양고기를 마장 소스에 찍어 먹는 식"}
+        ],
+        "tips": [
+            "알리페이(Alipay) 또는 위챗페이에 카드를 반드시 사전 등록하세요.",
+            "자금성은 일주일 전 사전 예약이 필수이며 여권 실물을 지참해야 합니다."
+        ]
+    },
+    "상하이": {
+        "spots": [
+            {"name": "The Bund", "kr_name": "와이탄 & 동방명주", "desc": "황푸강을 사이에 둔 유럽풍 건축물과 초현대식 마천루 야경"},
+            {"name": "Yu Garden", "kr_name": "예원 (Yu Garden)", "desc": "명나라 시대의 정교하고 아름다운 강남 전통 정원"},
+            {"name": "Xintiandi", "kr_name": "신천지 & 프랑스 조계지", "desc": "감성 카페와 석고문 건축물이 늘어선 세련된 거리"}
+        ],
+        "stays": [
+            {"area": "인민광장 / 난징둥루", "type": "교통 및 쇼핑 중심", "desc": "지하철 1·2호선 환승 요충지, 와이탄 도보 가능"},
+            {"area": "와이탄 강변", "type": "리버뷰 럭셔리 호텔", "desc": "환상적인 상하이 마천루 야경 감상"},
+            {"area": "정안사 / 조계지", "type": "트렌디 부티크 호텔", "desc": "조용하고 세련된 카페와 다이닝 인프라"}
+        ],
+        "foods": [
+            {"name": "샤오롱바오 (소롱포)", "desc": "얇은 피 속에 진한 고기 육즙이 가득 찬 대표 딤섬"},
+            {"name": "성지엔바오 (생전포)", "desc": "밑바닥은 바삭하고 위는 쪄낸 상하이식 군만두"},
+            {"name": "홍샤오로우", "desc": "달콤 짭조름한 간장 소스에 부드럽게 졸여낸 삼겹살 요리"}
+        ],
+        "tips": [
+            "Alipay 앱 내 대중교통 QR로 지하철을 편리하게 탈 수 있습니다.",
+            "와이탄의 건물 조명은 밤 10시~11시 사이에 소등되니 일몰 직후 방문을 추천합니다."
+        ]
+    },
+    "청도": {
+        "spots": [
+            {"name": "Tsingtao Brewery", "kr_name": "칭다오 맥주박물관", "desc": "100년 역사의 칭다오 맥주 공정과 신선한 원액 시음"},
+            {"name": "Zhanqiao Pier", "kr_name": "잔교 (Zhanqiao Pier)", "desc": "칭다오 맥주 라벨의 모델이자 도시의 대표 상징물"},
+            {"name": "Badaguan", "kr_name": "팔대관 풍경구", "desc": "독일풍 붉은 지붕 건축물이 모여 있는 해안 산책로"}
+        ],
+        "stays": [
+            {"area": "5.4 광장 & 시남구", "type": "현대적 오션뷰 호텔", "desc": "쇼핑몰 및 현대적인 해변 야경 감상 최적"},
+            {"area": "구시가지 (잔교/중산로)", "type": "역사 문화 숙소", "desc": "독일풍 건축물, 성당, 꼬치거리 인접"}
+        ],
+        "foods": [
+            {"name": "바지락 볶음 (라지아오거리)", "desc": "매콤한 고추와 마늘로 볶아낸 최고의 맥주 안주"},
+            {"name": "비닐봉지 생맥주", "desc": "은색 맥주통에서 비닐봉지에 바로 담아주는 초신선 로컬 맥주"},
+            {"name": "해산물 꼬치구이", "desc": "양꼬치와 신선한 해산물을 숯불에 구워낸 별미"}
+        ],
+        "tips": [
+            "인천-청도는 비행기로 약 1시간 20분 거리라 주말 여행으로 최적입니다."
+        ]
+    },
+    "도쿄": {
+        "spots": [
+            {"name": "Sensō-ji", "kr_name": "센소지 & 아사쿠사", "desc": "도쿄 최고(最古)의 사찰과 전통 상점가 나카미세도리"},
+            {"name": "Shibuya Sky", "kr_name": "시부야 스카이 & 스크램블", "desc": "도쿄 타워와 후지산까지 보이는 360도 파노라마 루프탑"},
+            {"name": "Shinjuku Gyoen", "kr_name": "신주쿠교엔", "desc": "도심 속 거대한 일본/영국/프랑스 정원"}
+        ],
+        "stays": [
+            {"area": "신주쿠 / 시부야", "type": "교통 & 번화가 중심", "desc": "쇼핑, 맛집, 근교 이동 최적"},
+            {"area": "긴자 / 도쿄역", "type": "쾌적한 럭셔리 & 비즈니스", "desc": "신칸센 탑승 편리 및 품격 있는 거리"},
+            {"area": "우에노 / 아사쿠사", "type": "가성비 호텔", "desc": "스카이라이너로 나리타 공항 직통"}
+        ],
+        "foods": [
+            {"name": "츠케멘 & 라멘", "desc": "진한 육수에 면을 찍어 먹는 츠케멘"},
+            {"name": "에도마에 스시", "desc": "도요스 시장 직송 신선한 초밥"},
+            {"name": "몬자야키", "desc": "철판에 긁어가며 익혀 먹는 도쿄 로컬 소울푸드"}
+        ],
+        "tips": [
+            "도쿄 서브웨이 24/48/72시간 티켓으로 교통비를 대폭 절약할 수 있습니다."
+        ]
+    },
+    "오사카": {
+        "spots": [
+            {"name": "Dotonbori", "kr_name": "도톤보리 & 글리코상", "desc": "화려한 네온사인과 거대한 입체 간판이 가득한 번화가"},
+            {"name": "Osaka Castle", "kr_name": "오사카성 천수각", "desc": "웅장한 천수각과 성곽 해자 산책로"},
+            {"name": "Universal Studios Japan", "kr_name": "유니버설 스튜디오 재팬", "desc": "닌텐도 월드와 해리포터 테마파크"}
+        ],
+        "stays": [
+            {"area": "난바 / 신사이바시", "type": "쇼핑 & 미식 중심", "desc": "라피트 직결 및 도톤보리 도보 이동"},
+            {"area": "우메다 (오사카역)", "type": "교통 허브", "desc": "교토, 고베, 나라 이동 최적"}
+        ],
+        "foods": [
+            {"name": "타코야키 & 오코노미야키", "desc": "겉바속촉 문어 빵과 두툼한 철판 부침개"},
+            {"name": "쿠시카츠", "desc": "바삭하게 튀겨 소스에 찍어 먹는 꼬치 튀김"}
+        ],
+        "tips": [
+            "교토 일정 시 한큐 패스를 미리 준비하세요."
+        ]
+    },
+    "후쿠오카": {
+        "spots": [
+            {"name": "Ohori Park", "kr_name": "오호리 공원", "desc": "거대한 호수와 고즈넉한 성 터 산책로"},
+            {"name": "Fukuoka Tower", "kr_name": "후쿠오카 타워 & 모모치 해변", "desc": "하카타만 앞바다와 로맨틱한 일몰"},
+            {"name": "Dazaifu Tenmangu", "kr_name": "다자이후 텐만구", "desc": "학문의 신을 모시는 고즈넉한 신사"}
+        ],
+        "stays": [
+            {"area": "하카타역", "type": "교통 중심", "desc": "공항에서 지하철로 단 5분"},
+            {"area": "텐진 / 다이묘", "type": "쇼핑 & 맛집", "desc": "백화점과 감성 편집숍 밀집"}
+        ],
+        "foods": [
+            {"name": "하카타 돈코츠 라멘", "desc": "진한 돼지뼈 육수의 원조 라멘"},
+            {"name": "모츠나베 (소곱창 전골)", "desc": "양배추와 부추가 산더미인 고소한 전골"}
+        ],
+        "tips": [
+            "공항과 시내가 지하철 2정거장으로 이동 피로가 가장 적습니다."
+        ]
+    },
+    "삿포로": {
+        "spots": [
+            {"name": "Odori Park", "kr_name": "오도리 공원 & TV타워", "desc": "도심을 가로지르는 녹지대이자 눈축제 무대"},
+            {"name": "Sapporo Beer Museum", "kr_name": "삿포로 맥주박물관", "desc": "홋카이도 한정 삿포로 클래식 시음"},
+            {"name": "Biei Blue Pond", "kr_name": "비에이 청의 호수 & 설경", "desc": "사계절 환상적인 자연경관 투어"}
+        ],
+        "stays": [
+            {"area": "스스키노", "type": "미식 번화가", "desc": "라멘 요코초, 징기스칸 맛집 밀집"},
+            {"area": "삿포로역", "type": "투어 버스 출발지", "desc": "공항 쾌속선 및 근교 이동 최적"}
+        ],
+        "foods": [
+            {"name": "징기스칸", "desc": "투구 모양 불판에 구워 먹는 생양고기"},
+            {"name": "스프카레", "desc": "큼직한 채소와 향신료의 깊은 국물"}
+        ],
+        "tips": [
+            "겨울철 방문 시 신발 부착용 미끄럼 방지 패드가 필수입니다."
+        ]
+    },
+    "뉴욕": {
+        "spots": [
+            {"name": "Times Square", "kr_name": "타임스퀘어 & 브로드웨이", "desc": "화려한 전광판과 브로드웨이 뮤지컬"},
+            {"name": "Central Park", "kr_name": "센트럴 파크 & The Met", "desc": "도심 속 거대한 숲과 세계적 미술관"},
+            {"name": "Brooklyn Bridge", "kr_name": "브루클린 브릿지 & 덤보", "desc": "뉴욕의 고전적인 스카이라인 뷰"}
+        ],
+        "stays": [
+            {"area": "미드타운 맨해튼", "type": "명소 도보권", "desc": "타임스퀘어, 센트럴파크 인접"},
+            {"area": "소호 / 그리니치", "type": "트렌디 부티크", "desc": "감각적인 카페와 패션 숍"}
+        ],
+        "foods": [
+            {"name": "뉴욕 스트립 스테이크", "desc": "드라이에이징 포터하우스 스테이크"},
+            {"name": "뉴욕 베이글", "desc": "훈제 연어와 두툼한 크림치즈 베이글"}
+        ],
+        "tips": [
+            "지하철은 컨택트리스 카드로 바로 찍고 타면 됩니다."
+        ]
+    },
+    "로스앤젤레스": {
+        "spots": [
+            {"name": "Griffith Observatory", "kr_name": "그리피스 천문대 & 할리우드", "desc": "라라랜드 야경과 할리우드 사인"},
+            {"name": "Santa Monica Pier", "kr_name": "산타모니카 피어", "desc": "루트 66 종점과 캘리포니아 해변"},
+            {"name": "The Getty", "kr_name": "게티 센터", "desc": "언덕 위 건축미와 정원, 방대한 무료 미술관"}
+        ],
+        "stays": [
+            {"area": "산타모니카 / 비벌리힐스", "type": "안전한 럭셔리", "desc": "쾌적하고 치안이 우수한 지역"},
+            {"area": "한인타운 (K-Town)", "type": "교통 편리", "desc": "우버 이동 편리 및 24시간 식당"}
+        ],
+        "foods": [
+            {"name": "인앤아웃 버거", "desc": "서부의 상징, 더블더블과 애니멀 프라이즈"}
+        ],
+        "tips": [
+            "도시가 넓어 렌터카나 우버 탑승을 권장합니다."
+        ]
+    },
+    "파리": {
+        "spots": [
+            {"name": "Eiffel Tower", "kr_name": "에펠탑 & 샹드마르스", "desc": "파리의 영원한 상징과 화이트 에펠 조명 쇼"},
+            {"name": "Louvre Museum", "kr_name": "루브르 박물관", "desc": "모나리자를 비롯한 인류 예술의 보고"},
+            {"name": "Sacré-Cœur", "kr_name": "몽마르트르 & 사크레쾨르", "desc": "예술가의 언덕과 파리 시내 파노라마"}
+        ],
+        "stays": [
+            {"area": "1~8구 (중심가)", "type": "관광 최적", "desc": "도보 이동 편리 및 안전"},
+            {"area": "15구 / 16구", "type": "에펠탑 뷰", "desc": "조용하고 치안 우수한 주거 지역"}
+        ],
+        "foods": [
+            {"name": "크루아상 & 바게트", "desc": "동네 불랑제리의 겉바속촉 빵"},
+            {"name": "뵈프 부르기뇽", "desc": "와인에 졸인 프랑스식 소고기 찜"}
+        ],
+        "tips": [
+            "박물관은 공식 웹사이트 사전 시간 예약이 필수입니다."
+        ]
+    },
+    "모스크바": {
+        "spots": [
+            {"name": "Saint Basil's Cathedral", "kr_name": "붉은 광장 & 성 바실리 대성당", "desc": "러시아의 심장과 동화 같은 양파 돔"},
+            {"name": "Moscow Kremlin", "kr_name": "크렘린 궁전", "desc": "황금빛 돔의 성당 군락과 영원의 불꽃"},
+            {"name": "GUM Department Store", "kr_name": "굼(GUM) 백화점", "desc": "유리 돔 아케이드와 명물 아이스크림"}
+        ],
+        "stays": [
+            {"area": "트베르스카야", "type": "중심 대로", "desc": "붉은 광장 도보권 및 쇼핑"},
+            {"area": "아르바트 거리", "type": "문화 예술 거리", "desc": "빅토르 최 추모벽과 감성 골목"}
+        ],
+        "foods": [
+            {"name": "비프 스트로가노프", "desc": "사워크림 소스를 곁들인 전통 쇠고기 요리"},
+            {"name": "펠메니", "desc": "러시아식 전통 만두"}
+        ],
+        "tips": [
+            "지하철역이 궁전처럼 꾸며져 있어 메트로 투어를 추천합니다."
+        ]
+    },
+    "상트페테르부르크": {
+        "spots": [
+            {"name": "Hermitage Museum", "kr_name": "에르미타주 미술관 (겨울궁전)", "desc": "세계 3대 박물관 중 하나이자 제정 러시아 궁전의 극치"},
+            {"name": "Church of the Savior on Blood", "kr_name": "피의 구원 성당", "desc": "화려한 모자이크 벽화로 둘러싸인 성당"},
+            {"name": "Nevsky Prospekt", "kr_name": "네프스키 대로 & 카잔 대성당", "desc": "로마 베드로 대성당을 본뜬 웅장한 건축"}
+        ],
+        "stays": [
+            {"area": "네프스키 대로", "type": "관광 최적", "desc": "겨울궁전 및 선착장 도보 이동"},
+            {"area": "폰탄카 운하 주변", "type": "클래식 감성", "desc": "운하 뷰가 아름다운 호텔"}
+        ],
+        "foods": [
+            {"name": "보르시", "desc": "비트를 넣은 붉은 수프와 사워크림"},
+            {"name": "블리니", "desc": "연어와 캐비어를 싸 먹는 얇은 팬케이크"}
+        ],
+        "tips": [
+            "백야 축제 기간(5월 말~7월) 네바강 도개교 행사는 필수 코스입니다."
+        ]
+    },
+    "시드니": {
+        "spots": [
+            {"name": "Sydney Opera House", "kr_name": "오페라 하우스 & 하버 브릿지", "desc": "세계적인 랜드마크와 아름다운 하버 페리 산책"},
+            {"name": "Bondi Beach", "kr_name": "본다이 비치", "desc": "서핑의 성지와 아이스버그 수영장"},
+            {"name": "Blue Mountains", "kr_name": "블루마운틴 국립공원", "desc": "푸른 안개와 세자매봉 바위 트레킹"}
+        ],
+        "stays": [
+            {"area": "서큘러 키", "type": "하버 뷰", "desc": "페리 선착장 앞이자 오페라하우스 조망"},
+            {"area": "달링 하버", "type": "가족 & 쇼핑", "desc": "수족관과 쇼핑몰 밀집"}
+        ],
+        "foods": [
+            {"name": "호주 청정우 스테이크", "desc": "육향 가득한 두툼한 스테이크"},
+            {"name": "플랫 화이트", "desc": "부드러운 우유 폼의 호주식 에스프레소"}
+        ],
+        "tips": [
+            "컨택트리스 카드로 페리와 전철을 바로 탈 수 있습니다."
+        ]
+    }
+}
+
+# -------------------------------------------------------------
+# 10. 화면 렌더링 (4개 탭 큐레이션 및 무료 고화질 이미지 연동)
+# -------------------------------------------------------------
+st.markdown("---")
+st.subheader(f"🪻 {selected_city_name} 여행 핵심 가이드")
+
+matched_guide_key = None
+for key in TRAVEL_GUIDE_DB.keys():
+    if key in selected_city_name:
+        matched_guide_key = key
+        break
+
+if matched_guide_key:
+    guide = TRAVEL_GUIDE_DB[matched_guide_key]
+    tab_spot, tab_stay, tab_food, tab_tip = st.tabs(["🏛️ 추천 명소", "🏨 추천 숙소", "🍜 대표 먹거리", "💡 여행 꿀팁"])
+    
+    with tab_spot:
+        cols = st.columns(len(guide["spots"]))
+        for idx, spot in enumerate(guide["spots"]):
+            with cols[idx]:
+                img_query = spot.get("name", spot.get("kr_name", ""))
+                img_url = fetch_wiki_image(img_query)
+                st.image(img_url, use_container_width=True)
+                
+                title = spot.get("kr_name", spot.get("name"))
+                st.markdown(f"##### **{title}**")
+                st.write(spot["desc"])
+                
+    with tab_stay:
+        cols = st.columns(len(guide["stays"]))
+        for idx, stay in enumerate(guide["stays"]):
+            with cols[idx]:
+                st.markdown(f"##### **{stay['area']}**")
+                st.caption(f"추천 유형: {stay['type']}")
+                st.write(stay["desc"])
+                
+    with tab_food:
+        cols = st.columns(len(guide["foods"]))
+        for idx, food in enumerate(guide["foods"]):
+            with cols[idx]:
+                st.markdown(f"##### **{food['name']}**")
+                st.write(food["desc"])
+                
+    with tab_tip:
+        for idx, tip in enumerate(guide["tips"], 1):
+            st.info(f"**Tip {idx}:** {tip}")
+else:
+    st.info(f"선택하신 **{selected_city_name}**의 실시간 여행 정보를 아래 바로가기 버튼을 통해 확인해 보세요.")
+
+st.markdown("##### 🔍 더 알아보기 (실시간 정보 바로가기)")
+search_query = city_info['city_query']
+b_col1, b_col2, b_col3 = st.columns(3)
+with b_col1:
+    st.link_button("📍 구글 지도에서 명소/맛집 보기", f"https://www.google.com/maps/search/{search_query}+attractions")
+with b_col2:
+    st.link_button("🏨 아고다 숙소 최저가 검색", f"https://www.agoda.com/search?city={search_query}")
+with b_col3:
+    st.link_button("✈️ 트립어드바이저 여행 후기", f"https://www.tripadvisor.com/Search?q={search_query}")
